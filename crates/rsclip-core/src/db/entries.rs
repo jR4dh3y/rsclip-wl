@@ -122,7 +122,7 @@ impl Database {
         let id = self.conn.query_row(
             "SELECT id FROM entries WHERE content_hash = ?1",
             params![entry.content_hash],
-            |row| row.get(0),
+            |row| row.get::<_, i64>("id"),
         )?;
         Ok(id)
     }
@@ -141,7 +141,7 @@ impl Database {
               e.text_content, e.file_path, e.thumb_path, e.source_app, e.link_url,
               e.link_domain, e.link_icon, e.color_value, e.color_format, e.pinned,
               e.favorite, e.copied_at, e.updated_at, e.last_used_at, e.use_count,
-              e.size_bytes, o.text
+              e.size_bytes, o.text AS ocr_text
             FROM entries e
             LEFT JOIN ocr_results o ON o.entry_id = e.id
             WHERE e.deleted = 0
@@ -201,7 +201,7 @@ impl Database {
                   e.text_content, e.file_path, e.thumb_path, e.source_app, e.link_url,
                   e.link_domain, e.link_icon, e.color_value, e.color_format, e.pinned,
                   e.favorite, e.copied_at, e.updated_at, e.last_used_at, e.use_count,
-                  e.size_bytes, o.text
+                  e.size_bytes, o.text AS ocr_text
                 FROM entries e
                 LEFT JOIN ocr_results o ON o.entry_id = e.id
                 WHERE e.id = ?1 AND e.deleted = 0

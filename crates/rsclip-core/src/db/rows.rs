@@ -5,59 +5,59 @@ use rusqlite::Row;
 use crate::models::{ClipboardEntry, EntryData, EntryKind, SecretEntry};
 
 pub(super) fn entry_from_row(row: &Row<'_>) -> rusqlite::Result<ClipboardEntry> {
-    let kind: String = row.get(2)?;
+    let kind: String = row.get("kind")?;
     let kind = EntryKind::from_str(&kind).unwrap_or(EntryKind::Unknown);
 
     let data = match kind {
         EntryKind::Text => EntryData::Text,
         EntryKind::Image => EntryData::Image {
-            file_path: row.get(7)?,
-            thumb_path: row.get(8)?,
-            ocr_text: row.get(22)?,
+            file_path: row.get("file_path")?,
+            thumb_path: row.get("thumb_path")?,
+            ocr_text: row.get("ocr_text")?,
         },
         EntryKind::Link => EntryData::Link {
-            url: row.get(10)?,
-            domain: row.get(11)?,
-            icon: row.get(12)?,
+            url: row.get("link_url")?,
+            domain: row.get("link_domain")?,
+            icon: row.get("link_icon")?,
         },
         EntryKind::Color => EntryData::Color {
-            value: row.get(13)?,
-            format: row.get(14)?,
+            value: row.get("color_value")?,
+            format: row.get("color_format")?,
         },
         EntryKind::File => EntryData::File {
-            source_app: row.get(9)?,
+            source_app: row.get("source_app")?,
         },
         EntryKind::Unknown => EntryData::Unknown,
     };
 
     Ok(ClipboardEntry {
-        id: row.get(0)?,
-        content_hash: row.get(1)?,
+        id: row.get("id")?,
+        content_hash: row.get("content_hash")?,
         kind,
-        mime_type: row.get(3)?,
-        title: row.get(4)?,
-        preview_text: row.get(5)?,
-        text_content: row.get(6)?,
-        pinned: row.get::<_, i64>(15)? != 0,
-        favorite: row.get::<_, i64>(16)? != 0,
-        copied_at: row.get(17)?,
-        updated_at: row.get(18)?,
-        last_used_at: row.get(19)?,
-        use_count: row.get(20)?,
-        size_bytes: row.get(21)?,
+        mime_type: row.get("mime_type")?,
+        title: row.get("title")?,
+        preview_text: row.get("preview_text")?,
+        text_content: row.get("text_content")?,
+        pinned: row.get::<_, i64>("pinned")? != 0,
+        favorite: row.get::<_, i64>("favorite")? != 0,
+        copied_at: row.get("copied_at")?,
+        updated_at: row.get("updated_at")?,
+        last_used_at: row.get("last_used_at")?,
+        use_count: row.get("use_count")?,
+        size_bytes: row.get("size_bytes")?,
         data,
     })
 }
 
 pub(super) fn secret_from_row(row: &Row<'_>) -> rusqlite::Result<SecretEntry> {
     Ok(SecretEntry {
-        id: row.get(0)?,
-        source_entry_id: row.get(1)?,
-        alias: row.get(2)?,
-        value: row.get(3)?,
-        created_at: row.get(4)?,
-        updated_at: row.get(5)?,
-        last_used_at: row.get(6)?,
-        use_count: row.get(7)?,
+        id: row.get("id")?,
+        source_entry_id: row.get("source_entry_id")?,
+        alias: row.get("alias")?,
+        value: row.get("value")?,
+        created_at: row.get("created_at")?,
+        updated_at: row.get("updated_at")?,
+        last_used_at: row.get("last_used_at")?,
+        use_count: row.get("use_count")?,
     })
 }

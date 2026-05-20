@@ -64,7 +64,7 @@ impl Database {
             let id = self.conn.query_row(
                 "SELECT id FROM secrets WHERE source_entry_id = ?1",
                 params![source_entry_id],
-                |row| row.get(0),
+                |row| row.get::<_, i64>("id"),
             )?;
             return Ok(id);
         }
@@ -94,7 +94,7 @@ impl Database {
             .query_row(
                 "SELECT source_entry_id FROM secrets WHERE id = ?1",
                 params![id],
-                |row| row.get::<_, Option<i64>>(0),
+                |row| row.get::<_, Option<i64>>("source_entry_id"),
             )
             .optional()?
             .flatten();
