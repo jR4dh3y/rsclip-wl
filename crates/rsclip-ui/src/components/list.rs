@@ -1,5 +1,5 @@
 use rsclip_core::format::{masked_secret, relative_time};
-use rsclip_core::models::{ClipboardEntry, EntryKind, SecretEntry};
+use rsclip_core::models::{ClipboardEntry, EntryData, EntryKind, SecretEntry};
 use gtk::prelude::*;
 use gtk4 as gtk;
 
@@ -115,18 +115,21 @@ fn badge_icon(icon_name: &str, tooltip: &str) -> gtk::Image {
 }
 
 fn entry_icon_name(entry: &ClipboardEntry) -> &'static str {
-    match entry.kind {
-        EntryKind::Text => "text-x-generic-symbolic",
-        EntryKind::Image => "image-x-generic-symbolic",
-        EntryKind::Link => match entry.link_icon.as_deref() {
-            Some("github") => "code-context-symbolic",
-            Some("youtube") => "video-x-generic-symbolic",
-            Some("rust") => "application-x-executable-symbolic",
+    match &entry.data {
+        EntryData::Link { icon, .. } => match icon.as_str() {
+            "github" => "code-context-symbolic",
+            "youtube" => "video-x-generic-symbolic",
+            "rust" => "application-x-executable-symbolic",
             _ => "emblem-shared-symbolic",
         },
-        EntryKind::Color => "color-select-symbolic",
-        EntryKind::File => "folder-symbolic",
-        EntryKind::Unknown => "dialog-question-symbolic",
+        _ => match entry.kind {
+            EntryKind::Text => "text-x-generic-symbolic",
+            EntryKind::Image => "image-x-generic-symbolic",
+            EntryKind::Color => "color-select-symbolic",
+            EntryKind::File => "folder-symbolic",
+            EntryKind::Unknown => "dialog-question-symbolic",
+            EntryKind::Link => unreachable!(),
+        },
     }
 }
 
