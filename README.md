@@ -1,8 +1,7 @@
 # rsclip
 
-rsclip is a small Rust clipboard manager for Wayland desktops. It follows the design in
-`/home/radhey/code/dots-niri/plan.md`: a low-memory daemon captures clipboard content and a
-separate GTK4 UI opens on demand.
+rsclip is a small Rust clipboard manager for Wayland desktops. It uses a low-memory daemon to
+capture clipboard content and a separate GTK4 UI that opens on demand.
 
 ## Current scope
 
