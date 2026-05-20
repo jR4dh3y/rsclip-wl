@@ -47,8 +47,9 @@ impl FromStr for EntryKind {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum EntryData {
+    #[default]
     Text,
     Image {
         file_path: String,
@@ -83,8 +84,9 @@ impl EntryData {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum NewEntryData {
+    #[default]
     Text,
     Image {
         file_path: Option<String>,
@@ -138,6 +140,103 @@ pub struct ClipboardEntry {
     pub data: EntryData,
 }
 
+impl ClipboardEntry {
+    #[cfg(test)]
+    pub fn test_text(id: i64, title: &str) -> Self {
+        Self {
+            id,
+            content_hash: "hash".to_string(),
+            kind: EntryKind::Text,
+            mime_type: "text/plain".to_string(),
+            title: title.to_string(),
+            preview_text: None,
+            text_content: None,
+            pinned: false,
+            favorite: false,
+            copied_at: 0,
+            updated_at: 0,
+            last_used_at: None,
+            use_count: 0,
+            size_bytes: 0,
+            data: EntryData::Text,
+        }
+    }
+
+    #[cfg(test)]
+    pub fn test_image(id: i64, file_path: &str) -> Self {
+        Self {
+            id,
+            content_hash: "hash".to_string(),
+            kind: EntryKind::Image,
+            mime_type: "image/png".to_string(),
+            title: "Image".to_string(),
+            preview_text: None,
+            text_content: None,
+            pinned: false,
+            favorite: false,
+            copied_at: 0,
+            updated_at: 0,
+            last_used_at: None,
+            use_count: 0,
+            size_bytes: 0,
+            data: EntryData::Image {
+                file_path: file_path.to_string(),
+                thumb_path: None,
+                ocr_text: None,
+            },
+        }
+    }
+
+    #[cfg(test)]
+    pub fn test_link(id: i64, url: &str, domain: &str) -> Self {
+        Self {
+            id,
+            content_hash: "hash".to_string(),
+            kind: EntryKind::Link,
+            mime_type: "text/plain".to_string(),
+            title: domain.to_string(),
+            preview_text: None,
+            text_content: None,
+            pinned: false,
+            favorite: false,
+            copied_at: 0,
+            updated_at: 0,
+            last_used_at: None,
+            use_count: 0,
+            size_bytes: 0,
+            data: EntryData::Link {
+                url: url.to_string(),
+                domain: domain.to_string(),
+                icon: "globe".to_string(),
+            },
+        }
+    }
+
+    #[cfg(test)]
+    pub fn test_color(id: i64, value: &str, format: &str) -> Self {
+        Self {
+            id,
+            content_hash: "hash".to_string(),
+            kind: EntryKind::Color,
+            mime_type: "text/plain".to_string(),
+            title: value.to_string(),
+            preview_text: None,
+            text_content: None,
+            pinned: false,
+            favorite: false,
+            copied_at: 0,
+            updated_at: 0,
+            last_used_at: None,
+            use_count: 0,
+            size_bytes: 0,
+            data: EntryData::Color {
+                value: value.to_string(),
+                format: format.to_string(),
+            },
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct NewEntry {
     pub content_hash: String,
@@ -147,6 +246,20 @@ pub struct NewEntry {
     pub text_content: Option<String>,
     pub size_bytes: i64,
     pub data: NewEntryData,
+}
+
+impl NewEntry {
+    pub fn new(content_hash: String, mime_type: String, title: String) -> Self {
+        Self {
+            content_hash,
+            mime_type,
+            title,
+            preview_text: None,
+            text_content: None,
+            size_bytes: 0,
+            data: NewEntryData::default(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]

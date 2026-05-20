@@ -47,31 +47,25 @@ mod tests {
     }
 
     fn text_entry(hash: &str, title: &str) -> NewEntry {
-        NewEntry {
-            content_hash: hash.to_string(),
-            mime_type: "text/plain".to_string(),
-            title: title.to_string(),
-            preview_text: Some(title.to_string()),
-            text_content: Some(title.to_string()),
-            size_bytes: title.len() as i64,
-            data: NewEntryData::Text,
-        }
+        let mut entry = NewEntry::new(hash.to_string(), "text/plain".to_string(), title.to_string());
+        entry.preview_text = Some(title.to_string());
+        entry.text_content = Some(title.to_string());
+        entry.size_bytes = title.len() as i64;
+        entry
     }
 
     fn image_entry(hash: &str, title: &str) -> NewEntry {
-        NewEntry {
-            content_hash: hash.to_string(),
-            mime_type: "image/png".to_string(),
-            title: title.to_string(),
-            preview_text: Some(title.to_string()),
-            text_content: Some(title.to_string()),
-            size_bytes: title.len() as i64,
-            data: NewEntryData::Image {
-                file_path: Some("/tmp/test.png".to_string()),
-                thumb_path: None,
-                ocr_text: None,
-            },
-        }
+        let mut entry =
+            NewEntry::new(hash.to_string(), "image/png".to_string(), title.to_string());
+        entry.preview_text = Some(title.to_string());
+        entry.text_content = Some(title.to_string());
+        entry.size_bytes = title.len() as i64;
+        entry.data = NewEntryData::Image {
+            file_path: Some("/tmp/test.png".to_string()),
+            thumb_path: None,
+            ocr_text: None,
+        };
+        entry
     }
 
     #[test]

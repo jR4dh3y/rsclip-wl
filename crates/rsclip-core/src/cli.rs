@@ -74,7 +74,7 @@ pub fn write_entries(
 
 #[cfg(test)]
 mod tests {
-    use crate::models::{ClipboardEntry, EntryData, EntryFilter, EntryKind, SortMode};
+    use crate::models::{ClipboardEntry, EntryFilter, SortMode};
 
     use super::{flag, option_value, parse_list_entries_args, positional_i64, write_entries};
 
@@ -83,23 +83,9 @@ mod tests {
     }
 
     fn text_entry() -> ClipboardEntry {
-        ClipboardEntry {
-            id: 7,
-            content_hash: "hash".to_string(),
-            kind: EntryKind::Text,
-            mime_type: "text/plain".to_string(),
-            title: "Title".to_string(),
-            preview_text: None,
-            text_content: None,
-            pinned: true,
-            favorite: false,
-            copied_at: 0,
-            updated_at: 0,
-            last_used_at: None,
-            use_count: 0,
-            size_bytes: 0,
-            data: EntryData::Text,
-        }
+        let mut entry = ClipboardEntry::test_text(7, "Title");
+        entry.pinned = true;
+        entry
     }
 
     #[test]

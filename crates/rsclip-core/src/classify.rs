@@ -20,17 +20,16 @@ pub fn classify_payload(mime_type: &str, content_hash: String, payload: &[u8]) -
                 ocr_text: None,
             },
             EntryKind::File => NewEntryData::File { source_app: None },
-            _ => NewEntryData::Unknown,
+            _ => NewEntryData::default(),
         };
-        Ok(NewEntry {
+        let mut entry = NewEntry::new(
             content_hash,
-            mime_type: mime_type.to_string(),
-            title: title_for_binary(mime_type, size_bytes),
-            preview_text: None,
-            text_content: None,
-            size_bytes,
-            data,
-        })
+            mime_type.to_string(),
+            title_for_binary(mime_type, size_bytes),
+        );
+        entry.size_bytes = size_bytes;
+        entry.data = data;
+        Ok(entry)
     }
 }
 
@@ -43,45 +42,41 @@ pub fn classify_text(
     let trimmed = text.trim();
 
     if let Some(color) = parse_color(trimmed) {
-        return NewEntry {
+        let mut entry = NewEntry::new(
             content_hash,
-            mime_type: mime_type.to_string(),
-            title: color.normalized_hex.clone(),
-            preview_text: Some(format!("{}  {}", color.normalized_hex, rgb_text(color.rgb))),
-            text_content: Some(text),
-            size_bytes,
-            data: NewEntryData::Color {
-                value: color.normalized_hex,
-                format: color.original_format,
-            },
+            mime_type.to_string(),
+            color.normalized_hex.clone(),
+        );
+        entry.preview_text = Some(format!("{}  {}", color.normalized_hex, rgb_text(color.rgb)));
+        entry.text_content = Some(text);
+        entry.size_bytes = size_bytes;
+        entry.data = NewEntryData::Color {
+            value: color.normalized_hex,
+            format: color.original_format,
         };
+        return entry;
     }
 
     if let Some(link) = detect_single_url(trimmed) {
-        return NewEntry {
-            content_hash,
-            mime_type: mime_type.to_string(),
-            title: link.domain.clone(),
-            preview_text: Some(link.url.clone()),
-            text_content: Some(text),
-            size_bytes,
-            data: NewEntryData::Link {
-                url: link.url,
-                domain: link.domain,
-                icon: link.icon,
-            },
+        let mut entry =
+            NewEntry::new(content_hash, mime_type.to_string(), link.domain.clone());
+        entry.preview_text = Some(link.url.clone());
+        entry.text_content = Some(text);
+        entry.size_bytes = size_bytes;
+        entry.data = NewEntryData::Link {
+            url: link.url,
+            domain: link.domain,
+            icon: link.icon,
         };
+        return entry;
     }
 
-    NewEntry {
-        content_hash,
-        mime_type: mime_type.to_string(),
-        title: first_line_title(trimmed),
-        preview_text: Some(preview_text(trimmed)),
-        text_content: Some(text),
-        size_bytes,
-        data: NewEntryData::Text,
-    }
+    let mut entry =
+        NewEntry::new(content_hash, mime_type.to_string(), first_line_title(trimmed));
+    entry.preview_text = Some(preview_text(trimmed));
+    entry.text_content = Some(text);
+    entry.size_bytes = size_bytes;
+    entry
 }
 
 fn first_line_title(text: &str) -> String {
