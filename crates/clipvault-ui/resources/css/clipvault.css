@@ -1,0 +1,125 @@
+window {
+  background: transparent;
+}
+
+.app-shell {
+  background: rgba(30, 30, 32, 0.78);
+  border: 1px solid rgba(220, 217, 231, 0.14);
+  border-radius: 0;
+  color: #dcd9e7;
+}
+
+.topbar,
+.footer {
+  padding: 12px;
+}
+
+.footer {
+  border-top: 1px solid rgba(220, 217, 231, 0.08);
+  line-height: 1.35;
+}
+
+.search-box {
+  background: rgba(42, 42, 44, 0.92);
+  border: 1px solid rgba(220, 217, 231, 0.12);
+  border-radius: 0;
+  color: #dcd9e7;
+  min-height: 38px;
+}
+
+.sidebar {
+  background: rgba(42, 42, 44, 0.62);
+  border-top: 1px solid rgba(220, 217, 231, 0.08);
+  border-bottom: 1px solid rgba(220, 217, 231, 0.08);
+}
+
+.preview-pane {
+  background: rgba(30, 30, 32, 0.48);
+  border-top: 1px solid rgba(220, 217, 231, 0.08);
+  border-bottom: 1px solid rgba(220, 217, 231, 0.08);
+  padding: 12px;
+}
+
+.entry-row {
+  padding: 8px 10px;
+  border-radius: 0;
+  margin: 3px 8px;
+}
+
+.entry-kind {
+  min-width: 36px;
+  padding-right: 2px;
+}
+
+.entry-row:selected,
+.entry-row:hover {
+  background: rgba(74, 59, 95, 0.92);
+}
+
+.entry-title {
+  color: #dcd9e7;
+  font-weight: 600;
+}
+
+.details-value,
+.entry-subtitle,
+.muted {
+  color: #9c96ad;
+}
+
+.details-grid {
+  padding-top: 2px;
+}
+
+.details-panel {
+  border-top: 1px solid rgba(220, 217, 231, 0.10);
+  padding-top: 10px;
+}
+
+.details-row {
+  min-height: 22px;
+}
+
+.details-key {
+  min-width: 96px;
+}
+
+.details-value {
+  color: #dcd9e7;
+}
+
+.kind-badge {
+  background: rgba(195, 251, 91, 0.14);
+  border-radius: 0;
+  color: #c3fb5b;
+  padding: 2px 6px;
+}
+
+.preview-text {
+  background: rgba(12, 12, 14, 0.34);
+  border: 1px solid rgba(220, 217, 231, 0.10);
+  border-radius: 0;
+  color: #dcd9e7;
+  padding: 12px;
+}
+
+.color-swatch {
+  min-height: 148px;
+}
+
+textview,
+textview text {
+  background: transparent;
+  color: #dcd9e7;
+}
+
+button {
+  background: rgba(42, 42, 44, 0.92);
+  border: 1px solid rgba(220, 217, 231, 0.12);
+  border-radius: 0;
+  color: #dcd9e7;
+}
+
+button:hover {
+  background: rgba(74, 59, 95, 0.92);
+}

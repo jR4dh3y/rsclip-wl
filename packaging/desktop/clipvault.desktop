@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Clipvault
+Comment=Clipboard history for Wayland
+Exec=clipvault
+Icon=edit-paste
+Terminal=false
+Categories=Utility;GTK;
+StartupNotify=false
+

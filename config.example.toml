@@ -1,0 +1,30 @@
+[history]
+max_entries = 2000
+max_text_bytes = 1048576
+max_image_bytes = 10485760
+dedupe = true
+cleanup_unpinned_after_days = 0
+
+[paste]
+auto_paste = true
+paste_delay_ms = 80
+method = "wtype"
+
+[ocr]
+enabled = true
+command = "tesseract"
+default_language = "eng"
+timeout_seconds = 20
+auto_index = false
+
+[ui]
+theme = "nonchalant-dark"
+window_width = 920
+window_height = 620
+preview_default = true
+image_preview_max_width = 520
+image_preview_max_height = 420
+
+[links]
+favicon_cache = false
+
