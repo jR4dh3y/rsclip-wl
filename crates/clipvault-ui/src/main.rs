@@ -4,19 +4,21 @@ use std::os::fd::AsRawFd;
 use std::os::unix::net::UnixDatagram;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::time::Duration;
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Local, Utc};
 use clipvault_core::models::{ClipboardEntry, EntryFilter, EntryKind, SecretEntry, SortMode};
 use clipvault_core::notify::CHANGE_EVENT;
 use clipvault_core::ocr::run_tesseract;
-use clipvault_core::paste::{paste_entry, write_clipboard};
+use clipvault_core::paste::{copy_entry, trigger_paste, write_clipboard};
 use clipvault_core::{ClipvaultPaths, Database};
 use gtk::gdk;
 use gtk::prelude::*;
 use gtk4 as gtk;
 
 const APP_ID: &str = "io.github.radhey.clipvault";
+const AUTO_PASTE_DELAY: Duration = Duration::from_millis(140);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum AppView {
@@ -32,13 +34,20 @@ fn main() {
         )
         .init();
 
+    if let Err(err) = run() {
+        eprintln!("clipvault: {err:#}");
+        std::process::exit(1);
+    }
+}
+
+fn run() -> Result<()> {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     if args.first().map(String::as_str) == Some("list") {
-        if let Err(err) = cmd_list(&args[1..]) {
-            eprintln!("clipvault: {err:#}");
-            std::process::exit(1);
-        }
-        return;
+        return cmd_list(&args[1..]);
+    }
+
+    if std::env::var_os("WAYLAND_DISPLAY").is_none() {
+        anyhow::bail!("Clipvault overlay requires Wayland");
     }
 
     let app = gtk::Application::builder().application_id(APP_ID).build();
@@ -49,6 +58,7 @@ fn main() {
         }
     });
     app.run();
+    Ok(())
 }
 
 struct AppState {
@@ -83,9 +93,10 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
         .title("Clipvault")
         .default_width(920)
         .default_height(620)
-        .resizable(true)
+        .resizable(false)
         .build();
     window.add_css_class("clipvault-window");
+    configure_overlay_window(&window);
 
     let shell = gtk::Box::new(gtk::Orientation::Vertical, 0);
     shell.add_css_class("app-shell");
@@ -299,14 +310,15 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
     {
         let state = Rc::clone(&state);
         let app = app.clone();
+        let window = window.clone();
         list.connect_row_activated(move |_, row| match *state.view.borrow() {
             AppView::Clipboard => {
                 if let Some(entry) = state.entries.borrow().get(row.index() as usize).cloned() {
-                    if let Err(err) = paste_selected(&state, &entry, true) {
+                    if let Err(err) = copy_selected_entry(&state, &entry) {
                         set_footer(&state, &format!("Paste failed: {err:#}"));
                         return;
                     }
-                    app.quit();
+                    close_overlay_and_paste(&app, &window);
                 }
             }
             AppView::Secrets => {
@@ -346,10 +358,10 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
                     match *state.view.borrow() {
                         AppView::Clipboard => {
                             if let Some(entry) = current_entry(&state) {
-                                if let Err(err) = paste_selected(&state, &entry, true) {
+                                if let Err(err) = copy_selected_entry(&state, &entry) {
                                     set_footer(&state, &format!("Paste failed: {err:#}"));
                                 } else {
-                                    app.quit();
+                                    close_overlay_and_paste(&app, &window);
                                 }
                             }
                         }
@@ -369,7 +381,7 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
                     match *state.view.borrow() {
                         AppView::Clipboard => {
                             if let Some(entry) = current_entry(&state) {
-                                if let Err(err) = paste_selected(&state, &entry, false) {
+                                if let Err(err) = copy_selected_entry(&state, &entry) {
                                     set_footer(&state, &format!("Copy failed: {err:#}"));
                                 } else {
                                     set_footer(&state, "Copied selected entry");
@@ -478,6 +490,39 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
     window.present();
     search.grab_focus();
     Ok(())
+}
+
+fn configure_overlay_window(window: &gtk::ApplicationWindow) {
+    use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
+
+    window.set_decorated(false);
+    window.set_resizable(false);
+
+    window.init_layer_shell();
+    window.set_namespace(Some("clipvault"));
+    window.set_layer(Layer::Overlay);
+    window.set_keyboard_mode(KeyboardMode::Exclusive);
+    window.set_exclusive_zone(-1);
+
+    window.set_anchor(Edge::Left, false);
+    window.set_anchor(Edge::Right, false);
+    window.set_anchor(Edge::Top, false);
+    window.set_anchor(Edge::Bottom, false);
+}
+
+fn close_overlay_and_paste(app: &gtk::Application, window: &gtk::ApplicationWindow) {
+    use gtk4_layer_shell::{KeyboardMode, LayerShell};
+
+    window.set_keyboard_mode(KeyboardMode::None);
+    window.set_visible(false);
+
+    let app = app.clone();
+    glib::timeout_add_local_once(AUTO_PASTE_DELAY, move || {
+        if let Err(err) = trigger_paste() {
+            eprintln!("clipvault: Paste failed: {err:#}");
+        }
+        app.quit();
+    });
 }
 
 fn cmd_list(args: &[String]) -> Result<()> {
@@ -1135,8 +1180,8 @@ fn scroll_row_into_view(state: &Rc<AppState>, row: &gtk::ListBoxRow) {
     adjustment.set_value(target.clamp(adjustment.lower(), max_value));
 }
 
-fn paste_selected(state: &Rc<AppState>, entry: &ClipboardEntry, auto_paste: bool) -> Result<()> {
-    paste_entry(entry, auto_paste, 80)?;
+fn copy_selected_entry(state: &Rc<AppState>, entry: &ClipboardEntry) -> Result<()> {
+    copy_entry(entry)?;
     let db = Database::open(&state.db_path)?;
     db.touch_used(entry.id)?;
     Ok(())

@@ -16,6 +16,7 @@ clipvault-core = { path = "../clipvault-core" }
 gio.workspace = true
 glib.workspace = true
 gtk4.workspace = true
+gtk4-layer-shell.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true

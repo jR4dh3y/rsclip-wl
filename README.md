@@ -20,6 +20,12 @@ separate GTK4 UI opens on demand.
 cargo build
 ```
 
+On Arch/CachyOS, the GTK4 layer-shell system dependency is required for the overlay UI:
+
+```bash
+sudo pacman -S gtk4-layer-shell
+```
+
 Runtime tools expected by the full flow:
 
 ```bash
@@ -48,4 +54,3 @@ cargo run -p clipvault-ui --bin clipvault
 ```
 
 Install the service and desktop file by adapting the files under `packaging/`.
-
