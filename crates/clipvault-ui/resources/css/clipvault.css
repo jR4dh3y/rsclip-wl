@@ -202,6 +202,40 @@ listbox row.entry-row:selected image {
   padding: 8px;
 }
 
+.inline-dialog-scrim {
+  background: rgba(12, 12, 14, 0.42);
+}
+
+.inline-dialog {
+  background: #1e1e20;
+  border: 1px solid #5c516b;
+  color: #dcd9e7;
+  padding: 12px;
+}
+
+.inline-dialog-title {
+  color: #f0eafd;
+  font-weight: 700;
+}
+
+.inline-dialog-entry {
+  background: #2a2a2c;
+  border: 1px solid #4a4653;
+  border-radius: 0;
+  color: #dcd9e7;
+  min-height: 26px;
+  padding: 0 6px;
+}
+
+entry.inline-dialog-entry,
+entry.inline-dialog-entry text {
+  border-radius: 0;
+}
+
+.inline-dialog-actions {
+  padding-top: 4px;
+}
+
 .color-swatch {
   min-height: 1px;
 }
@@ -231,4 +265,33 @@ button:hover {
 
 .ocr-button:hover {
   background: #d4ff76;
+}
+
+button.primary-button,
+button.primary-button:hover {
+  background: #c3fb5b;
+  background-color: #c3fb5b;
+  background-image: none;
+  border-color: #c3fb5b;
+  box-shadow: none;
+  color: #11130f;
+  font-weight: 700;
+}
+
+button.primary-button label {
+  color: #11130f;
+}
+
+button.destructive-button,
+button.destructive-button:hover {
+  background: #6f2d38;
+  background-color: #6f2d38;
+  background-image: none;
+  border-color: #9a4350;
+  box-shadow: none;
+  color: #fff1f3;
+}
+
+button.destructive-button label {
+  color: #fff1f3;
 }

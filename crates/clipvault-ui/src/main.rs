@@ -69,6 +69,7 @@ struct AppState {
     filter: RefCell<EntryFilter>,
     sort: RefCell<SortMode>,
     view: RefCell<AppView>,
+    prompt_active: RefCell<bool>,
     search_entry: gtk::SearchEntry,
     filter_select: gtk::DropDown,
     history_button: gtk::Button,
@@ -98,9 +99,12 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
     window.add_css_class("clipvault-window");
     configure_overlay_window(&window);
 
+    let root = gtk::Overlay::new();
+    window.set_child(Some(&root));
+
     let shell = gtk::Box::new(gtk::Orientation::Vertical, 0);
     shell.add_css_class("app-shell");
-    window.set_child(Some(&shell));
+    root.set_child(Some(&shell));
 
     let topbar = gtk::Box::new(gtk::Orientation::Horizontal, 7);
     topbar.add_css_class("topbar");
@@ -200,6 +204,7 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
         filter: RefCell::new(EntryFilter::All),
         sort: RefCell::new(SortMode::Default),
         view: RefCell::new(AppView::Clipboard),
+        prompt_active: RefCell::new(false),
         search_entry: search.clone(),
         filter_select: filter.clone(),
         history_button: history_button.clone(),
@@ -342,6 +347,10 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
         let app = app.clone();
         let window = window.clone();
         controller.connect_key_pressed(move |_, key, _, modifiers| {
+            if *state.prompt_active.borrow() {
+                return glib::Propagation::Proceed;
+            }
+
             let ctrl = modifiers.contains(gdk::ModifierType::CONTROL_MASK);
             match (key, ctrl) {
                 (gdk::Key::Down, false) => {
@@ -896,6 +905,20 @@ fn render_secret_preview(state: &Rc<AppState>, secret: &SecretEntry) {
     }
     actions.append(&rename_button);
 
+    let delete_button = gtk::Button::with_label("Delete");
+    delete_button.add_css_class("destructive-button");
+    {
+        let state = Rc::clone(state);
+        delete_button.connect_clicked(move |_| {
+            if let Err(err) = delete_current(&state) {
+                set_footer(&state, &format!("Delete failed: {err:#}"));
+            } else {
+                set_footer(&state, "Deleted secret");
+            }
+        });
+    }
+    actions.append(&delete_button);
+
     state.preview.append(&actions);
     render_secret_details(state, secret);
 }
@@ -1246,7 +1269,6 @@ fn rename_current_secret_dialog(state: &Rc<AppState>, parent: &gtk::Window) {
     );
 }
 
-#[allow(deprecated)]
 fn prompt_secret_alias<F>(
     state: &Rc<AppState>,
     parent: &gtk::Window,
@@ -1256,46 +1278,121 @@ fn prompt_secret_alias<F>(
 ) where
     F: Fn(&Rc<AppState>, String) -> Result<()> + 'static,
 {
-    let dialog = gtk::Dialog::builder()
-        .title(title)
-        .transient_for(parent)
-        .modal(true)
-        .build();
-    dialog.add_button("Cancel", gtk::ResponseType::Cancel);
-    dialog.add_button("Save", gtk::ResponseType::Accept);
-    dialog.set_default_response(gtk::ResponseType::Accept);
+    let Some(root) = parent
+        .child()
+        .and_then(|child| child.downcast::<gtk::Overlay>().ok())
+    else {
+        set_footer(state, "Secret prompt failed: overlay root is unavailable");
+        return;
+    };
 
-    let content = dialog.content_area();
-    content.set_spacing(8);
-    content.set_margin_top(12);
-    content.set_margin_bottom(12);
-    content.set_margin_start(12);
-    content.set_margin_end(12);
+    let scrim = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    scrim.add_css_class("inline-dialog-scrim");
+    scrim.set_halign(gtk::Align::Fill);
+    scrim.set_valign(gtk::Align::Fill);
+    scrim.set_hexpand(true);
+    scrim.set_vexpand(true);
+
+    let panel = gtk::Box::new(gtk::Orientation::Vertical, 8);
+    panel.add_css_class("inline-dialog");
+    panel.set_halign(gtk::Align::Center);
+    panel.set_valign(gtk::Align::Center);
+    panel.set_width_request(320);
+    scrim.append(&panel);
+
+    let title_label = gtk::Label::new(Some(title));
+    title_label.add_css_class("inline-dialog-title");
+    title_label.set_xalign(0.0);
+    panel.append(&title_label);
 
     let label = gtk::Label::new(Some("Name"));
+    label.add_css_class("muted");
     label.set_xalign(0.0);
-    content.append(&label);
+    panel.append(&label);
 
     let alias = gtk::Entry::new();
+    alias.add_css_class("inline-dialog-entry");
     alias.set_text(default_alias);
-    alias.set_activates_default(true);
-    content.append(&alias);
+    panel.append(&alias);
 
+    let actions = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    actions.add_css_class("inline-dialog-actions");
+    actions.set_halign(gtk::Align::End);
+
+    let cancel = gtk::Button::with_label("Cancel");
+    let save = gtk::Button::with_label("Save");
+    save.add_css_class("primary-button");
+    actions.append(&cancel);
+    actions.append(&save);
+    panel.append(&actions);
+
+    root.add_overlay(&scrim);
+    *state.prompt_active.borrow_mut() = true;
+
+    let on_accept = Rc::new(on_accept);
     {
+        let root = root.clone();
+        let scrim = scrim.clone();
         let state = Rc::clone(state);
-        let alias_entry = alias.clone();
-        dialog.connect_response(move |dialog, response| {
-            if response == gtk::ResponseType::Accept {
-                let alias = alias_entry.text().to_string();
-                if let Err(err) = on_accept(&state, alias) {
-                    set_footer(&state, &format!("Secret failed: {err:#}"));
-                }
-            }
-            dialog.close();
+        cancel.connect_clicked(move |_| {
+            *state.prompt_active.borrow_mut() = false;
+            root.remove_overlay(&scrim);
+            state.search_entry.grab_focus();
         });
     }
 
-    dialog.present();
+    {
+        let root = root.clone();
+        let scrim = scrim.clone();
+        let state = Rc::clone(state);
+        let alias = alias.clone();
+        let on_accept = Rc::clone(&on_accept);
+        save.connect_clicked(move |_| {
+            let alias = alias.text().to_string();
+            if let Err(err) = on_accept(&state, alias) {
+                set_footer(&state, &format!("Secret failed: {err:#}"));
+                return;
+            }
+            *state.prompt_active.borrow_mut() = false;
+            root.remove_overlay(&scrim);
+            state.search_entry.grab_focus();
+        });
+    }
+
+    {
+        let root = root.clone();
+        let scrim = scrim.clone();
+        let state = Rc::clone(state);
+        let on_accept = Rc::clone(&on_accept);
+        alias.connect_activate(move |entry| {
+            let alias = entry.text().to_string();
+            if let Err(err) = on_accept(&state, alias) {
+                set_footer(&state, &format!("Secret failed: {err:#}"));
+                return;
+            }
+            *state.prompt_active.borrow_mut() = false;
+            root.remove_overlay(&scrim);
+            state.search_entry.grab_focus();
+        });
+    }
+
+    let controller = gtk::EventControllerKey::new();
+    {
+        let root = root.clone();
+        let scrim = scrim.clone();
+        let state = Rc::clone(state);
+        controller.connect_key_pressed(move |_, key, _, _| {
+            if key == gdk::Key::Escape {
+                *state.prompt_active.borrow_mut() = false;
+                root.remove_overlay(&scrim);
+                state.search_entry.grab_focus();
+                return glib::Propagation::Stop;
+            }
+            glib::Propagation::Proceed
+        });
+    }
+    alias.add_controller(controller);
+
     alias.grab_focus();
 }
 
