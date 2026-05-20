@@ -1,6 +1,7 @@
 use anyhow::Result;
 
 use crate::colors::{parse_color, rgb_text};
+use crate::format::human_bytes;
 use crate::links::detect_single_url;
 use crate::mime::kind_from_mime;
 use crate::models::{EntryKind, NewEntry};
@@ -132,16 +133,6 @@ fn title_for_binary(mime_type: &str, size_bytes: i64) -> String {
         format!("Image ({})", human_bytes(size_bytes))
     } else {
         format!("{mime_type} ({})", human_bytes(size_bytes))
-    }
-}
-
-fn human_bytes(bytes: i64) -> String {
-    if bytes >= 1_048_576 {
-        format!("{:.1} MB", bytes as f64 / 1_048_576.0)
-    } else if bytes >= 1024 {
-        format!("{:.1} KB", bytes as f64 / 1024.0)
-    } else {
-        format!("{bytes} B")
     }
 }
 

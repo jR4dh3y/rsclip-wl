@@ -3,7 +3,7 @@ window {
 }
 
 .app-shell {
-  background: rgba(30, 30, 32, 0.78);
+  background: rgba(30, 30, 32, 0.70);
   border: 1px solid rgba(220, 217, 231, 0.14);
   border-radius: 0;
   color: #dcd9e7;
@@ -69,13 +69,13 @@ button.mode-button.active-mode label {
 }
 
 .sidebar {
-  background: rgba(42, 42, 44, 0.62);
+  background: rgba(42, 42, 44, 0.54);
   border-top: 1px solid rgba(220, 217, 231, 0.08);
   border-bottom: 1px solid rgba(220, 217, 231, 0.08);
 }
 
 .preview-pane {
-  background: rgba(30, 30, 32, 0.48);
+  background: rgba(30, 30, 32, 0.40);
   border-top: 1px solid rgba(220, 217, 231, 0.08);
   border-bottom: 1px solid rgba(220, 217, 231, 0.08);
   padding: 8px;
