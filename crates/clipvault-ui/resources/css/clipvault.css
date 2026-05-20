@@ -52,19 +52,20 @@ window {
   padding-right: 10px;
 }
 
-.mode-button.active-mode,
-button.active-mode,
-button.active-mode:hover {
-  background: #453657;
-  background-color: #453657;
-  border-color: #806996;
-  color: #f0eafd;
+button.mode-button.active-mode,
+button.mode-button.active-mode:hover {
+  background: #c3fb5b;
+  background-color: #c3fb5b;
+  background-image: none;
+  border-color: #c3fb5b;
+  box-shadow: none;
+  color: #11130f;
   font-weight: 600;
+  text-shadow: none;
 }
 
-.mode-button.active-mode label,
-button.active-mode label {
-  color: #f0eafd;
+button.mode-button.active-mode label {
+  color: #11130f;
 }
 
 .sidebar {
