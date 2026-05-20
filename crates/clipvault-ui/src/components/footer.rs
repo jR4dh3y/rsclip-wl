@@ -13,13 +13,14 @@ pub(crate) fn build() -> FooterBar {
     container.add_css_class("footer");
 
     let footer = gtk::Label::new(Some(
-        "Enter paste  Ctrl+Enter copy  Ctrl+S save secret  Ctrl+P pin  Ctrl+D delete  Esc close",
+        "Enter: paste | Ctrl+Enter: copy | Ctrl+S: secret | Ctrl+P: pin | Ctrl+D: delete | Esc: close",
     ));
     footer.add_css_class("footer-label");
     footer.add_css_class("muted");
     footer.set_xalign(0.0);
-    footer.set_wrap(true);
-    footer.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+    footer.set_single_line_mode(true);
+    footer.set_ellipsize(gtk::pango::EllipsizeMode::End);
+    footer.set_wrap(false);
     footer.set_hexpand(true);
     container.append(&footer);
 

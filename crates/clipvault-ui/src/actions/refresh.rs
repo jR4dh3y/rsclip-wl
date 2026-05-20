@@ -99,7 +99,7 @@ fn render_clipboard_list(state: &Rc<AppState>, selected_id: Option<i64>) {
     set_footer(
         state,
         &format!(
-            "{} entries | Enter paste | Ctrl+Enter copy | Ctrl+S save secret | Ctrl+P pin | Ctrl+D delete | Esc close",
+            "{} entries | Enter: paste | Ctrl+Enter: copy | Ctrl+S: secret | Ctrl+P: pin | Ctrl+D: delete | Esc: close",
             state.entries.borrow().len()
         ),
     );
@@ -136,7 +136,7 @@ fn render_secrets_list(state: &Rc<AppState>, selected_id: Option<i64>) {
     set_footer(
         state,
         &format!(
-            "{} secrets | Enter copy | Ctrl+S copy | Ctrl+E rename | Ctrl+D delete | Esc close",
+            "{} secrets | Enter: copy | Ctrl+S: copy | Ctrl+E: rename | Ctrl+D: delete | Esc: close",
             state.secrets.borrow().len()
         ),
     );
