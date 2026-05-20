@@ -1220,7 +1220,14 @@ fn save_current_as_secret_dialog(state: &Rc<AppState>, parent: &gtk::Window) {
         return;
     };
 
-    let default_alias = if entry.title.trim().is_empty() {
+    let default_alias = if matches!(entry.kind, EntryKind::Image)
+        && entry
+            .ocr_text
+            .as_deref()
+            .is_some_and(|text| !text.trim().is_empty())
+    {
+        "OCR text".to_string()
+    } else if entry.title.trim().is_empty() {
         "Untitled secret".to_string()
     } else {
         entry.title.clone()
@@ -1234,6 +1241,7 @@ fn save_current_as_secret_dialog(state: &Rc<AppState>, parent: &gtk::Window) {
         move |state, alias| {
             let db = Database::open(&state.db_path)?;
             db.save_secret(Some(entry.id), &alias, &value)?;
+            db.delete_entry(entry.id)?;
             *state.view.borrow_mut() = AppView::Secrets;
             *state.query.borrow_mut() = String::new();
             state.search_entry.set_text("");
@@ -1298,7 +1306,6 @@ fn prompt_secret_alias<F>(
     panel.set_halign(gtk::Align::Center);
     panel.set_valign(gtk::Align::Center);
     panel.set_width_request(320);
-    scrim.append(&panel);
 
     let title_label = gtk::Label::new(Some(title));
     title_label.add_css_class("inline-dialog-title");
@@ -1327,15 +1334,18 @@ fn prompt_secret_alias<F>(
     panel.append(&actions);
 
     root.add_overlay(&scrim);
+    root.add_overlay(&panel);
     *state.prompt_active.borrow_mut() = true;
 
     let on_accept = Rc::new(on_accept);
     {
         let root = root.clone();
+        let panel = panel.clone();
         let scrim = scrim.clone();
         let state = Rc::clone(state);
         cancel.connect_clicked(move |_| {
             *state.prompt_active.borrow_mut() = false;
+            root.remove_overlay(&panel);
             root.remove_overlay(&scrim);
             state.search_entry.grab_focus();
         });
@@ -1343,6 +1353,7 @@ fn prompt_secret_alias<F>(
 
     {
         let root = root.clone();
+        let panel = panel.clone();
         let scrim = scrim.clone();
         let state = Rc::clone(state);
         let alias = alias.clone();
@@ -1354,6 +1365,7 @@ fn prompt_secret_alias<F>(
                 return;
             }
             *state.prompt_active.borrow_mut() = false;
+            root.remove_overlay(&panel);
             root.remove_overlay(&scrim);
             state.search_entry.grab_focus();
         });
@@ -1361,6 +1373,7 @@ fn prompt_secret_alias<F>(
 
     {
         let root = root.clone();
+        let panel = panel.clone();
         let scrim = scrim.clone();
         let state = Rc::clone(state);
         let on_accept = Rc::clone(&on_accept);
@@ -1371,6 +1384,7 @@ fn prompt_secret_alias<F>(
                 return;
             }
             *state.prompt_active.borrow_mut() = false;
+            root.remove_overlay(&panel);
             root.remove_overlay(&scrim);
             state.search_entry.grab_focus();
         });
@@ -1379,11 +1393,13 @@ fn prompt_secret_alias<F>(
     let controller = gtk::EventControllerKey::new();
     {
         let root = root.clone();
+        let panel = panel.clone();
         let scrim = scrim.clone();
         let state = Rc::clone(state);
         controller.connect_key_pressed(move |_, key, _, _| {
             if key == gdk::Key::Escape {
                 *state.prompt_active.borrow_mut() = false;
+                root.remove_overlay(&panel);
                 root.remove_overlay(&scrim);
                 state.search_entry.grab_focus();
                 return glib::Propagation::Stop;
@@ -1434,7 +1450,12 @@ fn update_mode_controls(state: &Rc<AppState>) {
 
 fn secret_value_from_entry(entry: &ClipboardEntry) -> Option<String> {
     match entry.kind {
-        EntryKind::Image | EntryKind::Color | EntryKind::File => None,
+        EntryKind::Image => entry
+            .ocr_text
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .map(ToOwned::to_owned),
+        EntryKind::Color | EntryKind::File => None,
         EntryKind::Link => entry
             .link_url
             .as_deref()
