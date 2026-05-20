@@ -74,7 +74,7 @@ pub fn write_entries(
 
 #[cfg(test)]
 mod tests {
-    use crate::models::{ClipboardEntry, EntryFilter, EntryKind, SortMode};
+    use crate::models::{ClipboardEntry, EntryData, EntryFilter, EntryKind, SortMode};
 
     use super::{flag, option_value, parse_list_entries_args, positional_i64, write_entries};
 
@@ -91,14 +91,6 @@ mod tests {
             title: "Title".to_string(),
             preview_text: None,
             text_content: None,
-            file_path: None,
-            thumb_path: None,
-            source_app: None,
-            link_url: None,
-            link_domain: None,
-            link_icon: None,
-            color_value: None,
-            color_format: None,
             pinned: true,
             favorite: false,
             copied_at: 0,
@@ -106,7 +98,7 @@ mod tests {
             last_used_at: None,
             use_count: 0,
             size_bytes: 0,
-            ocr_text: None,
+            data: EntryData::Text,
         }
     }
 

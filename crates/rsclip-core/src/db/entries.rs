@@ -2,13 +2,77 @@ use anyhow::Result;
 use chrono::Utc;
 use rusqlite::{OptionalExtension, params};
 
-use crate::models::{ClipboardEntry, EntryFilter, NewEntry, SortMode};
+use crate::models::{ClipboardEntry, EntryFilter, NewEntry, NewEntryData, SortMode};
 
 use super::{Database, rows::entry_from_row};
 
 impl Database {
     pub fn upsert_entry(&self, entry: &NewEntry) -> Result<i64> {
         let now = Utc::now().timestamp();
+        let kind = entry.data.kind();
+
+        let (
+            file_path,
+            thumb_path,
+            source_app,
+            link_url,
+            link_domain,
+            link_icon,
+            color_value,
+            color_format,
+        ) = match &entry.data {
+            NewEntryData::Text => (None, None, None, None, None, None, None, None),
+            NewEntryData::Image {
+                file_path,
+                thumb_path,
+                ocr_text: _,
+            } => (
+                file_path.clone(),
+                thumb_path.clone(),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ),
+            NewEntryData::Link {
+                url,
+                domain,
+                icon,
+            } => (
+                None,
+                None,
+                None,
+                Some(url.clone()),
+                Some(domain.clone()),
+                Some(icon.clone()),
+                None,
+                None,
+            ),
+            NewEntryData::Color { value, format } => (
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(value.clone()),
+                Some(format.clone()),
+            ),
+            NewEntryData::File { source_app } => (
+                None,
+                None,
+                source_app.clone(),
+                None,
+                None,
+                None,
+                None,
+                None,
+            ),
+            NewEntryData::Unknown => (None, None, None, None, None, None, None, None),
+        };
+
         self.conn.execute(
             r#"
             INSERT INTO entries (
@@ -37,19 +101,19 @@ impl Database {
             "#,
             params![
                 entry.content_hash,
-                entry.kind.as_str(),
+                kind.as_str(),
                 entry.mime_type,
                 entry.title,
                 entry.preview_text,
                 entry.text_content,
-                entry.file_path,
-                entry.thumb_path,
-                entry.source_app,
-                entry.link_url,
-                entry.link_domain,
-                entry.link_icon,
-                entry.color_value,
-                entry.color_format,
+                file_path,
+                thumb_path,
+                source_app,
+                link_url,
+                link_domain,
+                link_icon,
+                color_value,
+                color_format,
                 now,
                 now,
                 entry.size_bytes,

@@ -6,16 +6,12 @@ use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 
-use crate::models::{ClipboardEntry, EntryKind};
+use crate::models::{ClipboardEntry, EntryData};
 
 pub fn copy_entry(entry: &ClipboardEntry) -> Result<()> {
-    match entry.kind {
-        EntryKind::Image => {
-            let path = entry
-                .file_path
-                .as_deref()
-                .context("image entry does not have a file path")?;
-            let bytes = fs::read(path).with_context(|| format!("reading {path}"))?;
+    match &entry.data {
+        EntryData::Image { file_path, .. } => {
+            let bytes = fs::read(file_path).with_context(|| format!("reading {file_path}"))?;
             write_clipboard(&entry.mime_type, &bytes)
         }
         _ => {

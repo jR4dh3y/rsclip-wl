@@ -4,7 +4,7 @@ use crate::colors::{parse_color, rgb_text};
 use crate::format::human_bytes;
 use crate::links::detect_single_url;
 use crate::mime::kind_from_mime;
-use crate::models::{EntryKind, NewEntry};
+use crate::models::{EntryKind, NewEntry, NewEntryData};
 
 pub fn classify_payload(mime_type: &str, content_hash: String, payload: &[u8]) -> Result<NewEntry> {
     let size_bytes = i64::try_from(payload.len()).unwrap_or(i64::MAX);
@@ -13,22 +13,23 @@ pub fn classify_payload(mime_type: &str, content_hash: String, payload: &[u8]) -
         Ok(classify_text(mime_type, content_hash, text, size_bytes))
     } else {
         let kind = kind_from_mime(mime_type);
+        let data = match kind {
+            EntryKind::Image => NewEntryData::Image {
+                file_path: None,
+                thumb_path: None,
+                ocr_text: None,
+            },
+            EntryKind::File => NewEntryData::File { source_app: None },
+            _ => NewEntryData::Unknown,
+        };
         Ok(NewEntry {
             content_hash,
-            kind,
             mime_type: mime_type.to_string(),
             title: title_for_binary(mime_type, size_bytes),
             preview_text: None,
             text_content: None,
-            file_path: None,
-            thumb_path: None,
-            source_app: None,
-            link_url: None,
-            link_domain: None,
-            link_icon: None,
-            color_value: None,
-            color_format: None,
             size_bytes,
+            data,
         })
     }
 }
@@ -44,59 +45,42 @@ pub fn classify_text(
     if let Some(color) = parse_color(trimmed) {
         return NewEntry {
             content_hash,
-            kind: EntryKind::Color,
             mime_type: mime_type.to_string(),
             title: color.normalized_hex.clone(),
             preview_text: Some(format!("{}  {}", color.normalized_hex, rgb_text(color.rgb))),
             text_content: Some(text),
-            file_path: None,
-            thumb_path: None,
-            source_app: None,
-            link_url: None,
-            link_domain: None,
-            link_icon: None,
-            color_value: Some(color.normalized_hex),
-            color_format: Some(color.original_format),
             size_bytes,
+            data: NewEntryData::Color {
+                value: color.normalized_hex,
+                format: color.original_format,
+            },
         };
     }
 
     if let Some(link) = detect_single_url(trimmed) {
         return NewEntry {
             content_hash,
-            kind: EntryKind::Link,
             mime_type: mime_type.to_string(),
             title: link.domain.clone(),
             preview_text: Some(link.url.clone()),
             text_content: Some(text),
-            file_path: None,
-            thumb_path: None,
-            source_app: None,
-            link_url: Some(link.url),
-            link_domain: Some(link.domain),
-            link_icon: Some(link.icon),
-            color_value: None,
-            color_format: None,
             size_bytes,
+            data: NewEntryData::Link {
+                url: link.url,
+                domain: link.domain,
+                icon: link.icon,
+            },
         };
     }
 
     NewEntry {
         content_hash,
-        kind: EntryKind::Text,
         mime_type: mime_type.to_string(),
         title: first_line_title(trimmed),
         preview_text: Some(preview_text(trimmed)),
         text_content: Some(text),
-        file_path: None,
-        thumb_path: None,
-        source_app: None,
-        link_url: None,
-        link_domain: None,
-        link_icon: None,
-        color_value: None,
-        color_format: None,
         size_bytes,
+        data: NewEntryData::Text,
     }
 }
 
@@ -144,14 +128,18 @@ mod tests {
     fn classifies_link() {
         let entry =
             classify_payload("text/plain", "hash".to_string(), b"https://youtu.be/abc").unwrap();
-        assert_eq!(entry.kind, EntryKind::Link);
-        assert_eq!(entry.link_icon.as_deref(), Some("youtube"));
+        assert!(matches!(entry.data, NewEntryData::Link { .. }));
+        if let NewEntryData::Link { icon, .. } = entry.data {
+            assert_eq!(icon, "youtube");
+        }
     }
 
     #[test]
     fn classifies_color() {
         let entry = classify_payload("text/plain", "hash".to_string(), b"#c59edc").unwrap();
-        assert_eq!(entry.kind, EntryKind::Color);
-        assert_eq!(entry.color_value.as_deref(), Some("#c59edc"));
+        assert!(matches!(entry.data, NewEntryData::Color { .. }));
+        if let NewEntryData::Color { value, .. } = entry.data {
+            assert_eq!(value, "#c59edc");
+        }
     }
 }

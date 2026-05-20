@@ -47,6 +47,78 @@ impl FromStr for EntryKind {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum EntryData {
+    Text,
+    Image {
+        file_path: String,
+        thumb_path: Option<String>,
+        ocr_text: Option<String>,
+    },
+    Link {
+        url: String,
+        domain: String,
+        icon: String,
+    },
+    Color {
+        value: String,
+        format: String,
+    },
+    File {
+        source_app: Option<String>,
+    },
+    Unknown,
+}
+
+impl EntryData {
+    pub fn kind(&self) -> EntryKind {
+        match self {
+            Self::Text => EntryKind::Text,
+            Self::Image { .. } => EntryKind::Image,
+            Self::Link { .. } => EntryKind::Link,
+            Self::Color { .. } => EntryKind::Color,
+            Self::File { .. } => EntryKind::File,
+            Self::Unknown => EntryKind::Unknown,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum NewEntryData {
+    Text,
+    Image {
+        file_path: Option<String>,
+        thumb_path: Option<String>,
+        ocr_text: Option<String>,
+    },
+    Link {
+        url: String,
+        domain: String,
+        icon: String,
+    },
+    Color {
+        value: String,
+        format: String,
+    },
+    File {
+        source_app: Option<String>,
+    },
+    Unknown,
+}
+
+impl NewEntryData {
+    pub fn kind(&self) -> EntryKind {
+        match self {
+            Self::Text => EntryKind::Text,
+            Self::Image { .. } => EntryKind::Image,
+            Self::Link { .. } => EntryKind::Link,
+            Self::Color { .. } => EntryKind::Color,
+            Self::File { .. } => EntryKind::File,
+            Self::Unknown => EntryKind::Unknown,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ClipboardEntry {
     pub id: i64,
@@ -56,14 +128,6 @@ pub struct ClipboardEntry {
     pub title: String,
     pub preview_text: Option<String>,
     pub text_content: Option<String>,
-    pub file_path: Option<String>,
-    pub thumb_path: Option<String>,
-    pub source_app: Option<String>,
-    pub link_url: Option<String>,
-    pub link_domain: Option<String>,
-    pub link_icon: Option<String>,
-    pub color_value: Option<String>,
-    pub color_format: Option<String>,
     pub pinned: bool,
     pub favorite: bool,
     pub copied_at: i64,
@@ -71,26 +135,18 @@ pub struct ClipboardEntry {
     pub last_used_at: Option<i64>,
     pub use_count: i64,
     pub size_bytes: i64,
-    pub ocr_text: Option<String>,
+    pub data: EntryData,
 }
 
 #[derive(Clone, Debug)]
 pub struct NewEntry {
     pub content_hash: String,
-    pub kind: EntryKind,
     pub mime_type: String,
     pub title: String,
     pub preview_text: Option<String>,
     pub text_content: Option<String>,
-    pub file_path: Option<String>,
-    pub thumb_path: Option<String>,
-    pub source_app: Option<String>,
-    pub link_url: Option<String>,
-    pub link_domain: Option<String>,
-    pub link_icon: Option<String>,
-    pub color_value: Option<String>,
-    pub color_format: Option<String>,
     pub size_bytes: i64,
+    pub data: NewEntryData,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
