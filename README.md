@@ -60,6 +60,6 @@ Install the service and desktop file by adapting the files under `packaging/`.
 This repository can publish a binary AUR package from GitHub release assets.
 
 - Build the release archive locally with `./scripts/build-release-archive.sh 0.1.0`.
-- The AUR package definition lives under `packaging/aur/clipvault-bin`.
+- The AUR package definition lives under `packaging/aur/rsclip-wl-bin`.
 - Pushing a matching Git tag such as `v0.1.0` triggers GitHub Actions to publish the
-  archive and update the `clipvault-bin` AUR package.
+  archive and update the `rsclip-wl-bin` AUR package.
