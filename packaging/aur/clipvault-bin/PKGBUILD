@@ -1,0 +1,29 @@
+pkgname=clipvault-bin
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Wayland clipboard manager with GTK UI and background daemon'
+arch=('x86_64')
+url='https://github.com/jR4dh3y/rsclip-wl'
+license=('MIT')
+depends=(
+  'gcc-libs'
+  'glibc'
+  'gtk4'
+  'gtk4-layer-shell'
+)
+optdepends=(
+  'tesseract: OCR support'
+  'wl-clipboard: wl-copy and wl-paste integration'
+  'wtype: auto-paste into the focused window'
+)
+provides=('clipvault')
+conflicts=('clipvault')
+source=(
+  "${pkgname}-${pkgver}.tar.zst::${url}/releases/download/v${pkgver}/clipvault-${pkgver}-x86_64.tar.zst"
+)
+sha256sums=('88bcac4cbfbfe28b6c37d7acb779455229e4dbae06408a32fb8d7ed88ab468a8')
+
+package() {
+  install -d "${pkgdir}"
+  cp -a "${srcdir}/clipvault-${pkgver}-x86_64/usr" "${pkgdir}/"
+}

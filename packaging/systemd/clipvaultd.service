@@ -5,10 +5,9 @@ After=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=%h/.local/bin/clipvaultd watch
+ExecStart=/usr/bin/clipvaultd watch
 Restart=on-failure
 RestartSec=2
 
 [Install]
 WantedBy=graphical-session.target
-

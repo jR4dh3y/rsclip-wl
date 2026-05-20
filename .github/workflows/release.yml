@@ -1,0 +1,129 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+env:
+  AUR_PKGNAME: clipvault-bin
+  RELEASE_ARCHIVE_NAME: clipvault
+
+jobs:
+  build-release-archive:
+    runs-on: ubuntu-24.04
+    outputs:
+      sha256: ${{ steps.checksum.outputs.sha256 }}
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-4-dev \
+            libgtk4-layer-shell-dev \
+            pkg-config \
+            zstd
+
+      - name: Build release archive
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          version="${VERSION#v}"
+          ./scripts/build-release-archive.sh "${version}"
+
+      - name: Publish GitHub release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.zst
+            dist/*.tar.zst.sha256
+
+      - name: Extract version
+        id: version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Extract checksum
+        id: checksum
+        run: |
+          sha256=$(awk '{print $1}' dist/*.tar.zst.sha256)
+          echo "sha256=$sha256" >> "$GITHUB_OUTPUT"
+
+  deploy-aur:
+    needs: build-release-archive
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Update AUR packaging files
+        env:
+          VERSION: ${{ needs.build-release-archive.outputs.version }}
+          CHECKSUM: ${{ needs.build-release-archive.outputs.sha256 }}
+        run: |
+          pkgdir="packaging/aur/${AUR_PKGNAME}"
+
+          sed -i "s/^pkgver=.*/pkgver=${VERSION}/" "${pkgdir}/PKGBUILD"
+          sed -i "s/^sha256sums=.*/sha256sums=('${CHECKSUM}')/" "${pkgdir}/PKGBUILD"
+
+          sed -i "s/^\([[:space:]]*pkgver = \).*/\1${VERSION}/" "${pkgdir}/.SRCINFO"
+          sed -i "s/^\([[:space:]]*sha256sums = \).*/\1${CHECKSUM}/" "${pkgdir}/.SRCINFO"
+          sed -i "s|${AUR_PKGNAME}-[0-9]\\+\\.[0-9]\\+\\.[0-9]\\+\\.tar\\.zst|${AUR_PKGNAME}-${VERSION}.tar.zst|g" "${pkgdir}/.SRCINFO"
+          sed -i "s|/v[0-9]\\+\\.[0-9]\\+\\.[0-9]\\+/|/v${VERSION}/|g" "${pkgdir}/.SRCINFO"
+          sed -i "s|${RELEASE_ARCHIVE_NAME}-[0-9]\\+\\.[0-9]\\+\\.[0-9]\\+-x86_64|${RELEASE_ARCHIVE_NAME}-${VERSION}-x86_64|g" "${pkgdir}/.SRCINFO"
+
+      - name: Configure AUR SSH key
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p "${HOME}/.ssh"
+          printf '%s\n' "${AUR_SSH_PRIVATE_KEY}" > "${HOME}/.ssh/aur"
+          chmod 600 "${HOME}/.ssh/aur"
+
+          ssh-keyscan -t rsa,ecdsa,ed25519 aur.archlinux.org > "${HOME}/.ssh/known_hosts"
+          ssh-keygen -lf "${HOME}/.ssh/known_hosts" > "${HOME}/.ssh/known_hosts.fingerprints"
+
+          grep -Fq 'SHA256:RFzBCUItH9LZS0cKB5UE6ceAYhBD5C8GeOBip8Z11+4' "${HOME}/.ssh/known_hosts.fingerprints"
+          grep -Fq 'SHA256:uTa/0PndEgPZTf76e1DFqXKJEXKsn7m9ivhLQtzGOCI' "${HOME}/.ssh/known_hosts.fingerprints"
+          grep -Fq 'SHA256:5s5cIyReIfNNVGRFdDbe3hdYiI5OelHGpw2rOUud3Q8' "${HOME}/.ssh/known_hosts.fingerprints"
+
+      - name: Deploy to AUR
+        env:
+          VERSION: ${{ needs.build-release-archive.outputs.version }}
+          GIT_SSH_COMMAND: ssh -i ~/.ssh/aur -o IdentitiesOnly=yes
+        run: |
+          aur_remote="ssh://aur@aur.archlinux.org/${AUR_PKGNAME}.git"
+
+          if ! git clone "${aur_remote}" aur-package; then
+            mkdir aur-package
+            git -C aur-package init
+            git -C aur-package remote add origin "${aur_remote}"
+          fi
+
+          cp "packaging/aur/${AUR_PKGNAME}/PKGBUILD" aur-package/PKGBUILD
+          cp "packaging/aur/${AUR_PKGNAME}/.SRCINFO" aur-package/.SRCINFO
+
+          cd aur-package
+          git config user.name "${GITHUB_ACTOR}"
+          git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+          git add PKGBUILD .SRCINFO
+
+          if git diff --cached --quiet; then
+            echo "AUR package is already up to date."
+            exit 0
+          fi
+
+          git commit -m "Update to v${VERSION}"
+          git push origin HEAD:master
