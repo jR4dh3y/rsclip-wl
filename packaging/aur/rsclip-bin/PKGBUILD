@@ -3,7 +3,7 @@ pkgver=0.1.4
 pkgrel=1
 pkgdesc='Wayland clipboard manager with GTK UI and background daemon'
 arch=('x86_64')
-url='https://github.com/jR4dh3y/rsclip-wl'
+url='https://github.com/jR4dh3y/rsclip'
 license=('MIT')
 depends=(
   'gcc-libs'
