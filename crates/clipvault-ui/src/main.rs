@@ -1312,11 +1312,6 @@ fn prompt_secret_alias<F>(
     title_label.set_xalign(0.0);
     panel.append(&title_label);
 
-    let label = gtk::Label::new(Some("Name"));
-    label.add_css_class("muted");
-    label.set_xalign(0.0);
-    panel.append(&label);
-
     let alias = gtk::Entry::new();
     alias.add_css_class("inline-dialog-entry");
     alias.set_text(default_alias);
@@ -1421,14 +1416,25 @@ fn toggle_pin(state: &Rc<AppState>) -> Result<()> {
 
 fn delete_current(state: &Rc<AppState>) -> Result<()> {
     let db = Database::open(&state.db_path)?;
-    match *state.view.borrow() {
+    let view = *state.view.borrow();
+    match view {
         AppView::Clipboard => {
             let entry = current_entry(state).context("no selected entry")?;
             db.delete_entry(entry.id)?;
         }
         AppView::Secrets => {
             let secret = current_secret(state).context("no selected secret")?;
+            let restore_clipboard = secret.source_entry_id.is_some();
             db.delete_secret(secret.id)?;
+            if restore_clipboard {
+                *state.view.borrow_mut() = AppView::Clipboard;
+                *state.query.borrow_mut() = String::new();
+                state.search_entry.set_text("");
+                state
+                    .search_entry
+                    .set_placeholder_text(Some("Search clipboard..."));
+                update_mode_controls(state);
+            }
         }
     }
     refresh_entries(state)

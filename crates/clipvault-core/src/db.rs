@@ -378,10 +378,28 @@ impl Database {
     }
 
     pub fn delete_secret(&self, id: i64) -> Result<()> {
+        let source_entry_id = self
+            .conn
+            .query_row(
+                "SELECT source_entry_id FROM secrets WHERE id = ?1",
+                params![id],
+                |row| row.get::<_, Option<i64>>(0),
+            )
+            .optional()?
+            .flatten();
+
         self.conn.execute(
             "UPDATE secrets SET deleted = 1, updated_at = ?2 WHERE id = ?1",
             params![id, Utc::now().timestamp()],
         )?;
+
+        if let Some(source_entry_id) = source_entry_id {
+            self.conn.execute(
+                "UPDATE entries SET deleted = 0 WHERE id = ?1",
+                params![source_entry_id],
+            )?;
+        }
+
         Ok(())
     }
 
