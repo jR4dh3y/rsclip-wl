@@ -7,17 +7,18 @@ window {
   border: 1px solid rgba(220, 217, 231, 0.14);
   border-radius: 0;
   color: #dcd9e7;
+  font-size: 12px;
 }
 
 .topbar {
-  padding: 7px 10px;
+  padding: 5px 8px;
 }
 
 .footer {
   border-top: 1px solid rgba(220, 217, 231, 0.08);
   line-height: 1.1;
-  min-height: 26px;
-  padding: 2px 10px;
+  min-height: 22px;
+  padding: 1px 8px;
 }
 
 .footer-label {
@@ -25,27 +26,45 @@ window {
 }
 
 .search-box {
-  background: rgba(42, 42, 44, 0.92);
-  border: 1px solid rgba(220, 217, 231, 0.12);
+  background: #2a2a2c;
+  border: 1px solid #4a4653;
   border-radius: 0;
   color: #dcd9e7;
-  min-height: 30px;
-  padding: 0 8px;
+  min-height: 26px;
+  padding: 0 6px;
 }
 
 .filter-select {
-  min-height: 30px;
+  background: #2a2a2c;
+  border: 1px solid #4a4653;
+  color: #dcd9e7;
+  min-height: 26px;
+}
+
+.filter-select button,
+.filter-select label {
+  color: #dcd9e7;
 }
 
 .mode-button {
-  min-height: 30px;
+  min-height: 26px;
+  padding-left: 10px;
+  padding-right: 10px;
 }
 
-.active-mode {
-  background: rgba(195, 251, 91, 0.14);
-  border-color: rgba(195, 251, 91, 0.35);
-  color: #c3fb5b;
+.mode-button.active-mode,
+button.active-mode,
+button.active-mode:hover {
+  background: #453657;
+  background-color: #453657;
+  border-color: #806996;
+  color: #f0eafd;
   font-weight: 600;
+}
+
+.mode-button.active-mode label,
+button.active-mode label {
+  color: #f0eafd;
 }
 
 .sidebar {
@@ -58,23 +77,69 @@ window {
   background: rgba(30, 30, 32, 0.48);
   border-top: 1px solid rgba(220, 217, 231, 0.08);
   border-bottom: 1px solid rgba(220, 217, 231, 0.08);
-  padding: 12px;
+  padding: 8px;
 }
 
 .entry-row {
-  padding: 8px 10px;
+  padding: 0;
   border-radius: 0;
-  margin: 3px 8px;
+  margin: 2px 6px;
+}
+
+.entry-row-content {
+  padding: 6px 8px;
 }
 
 .entry-kind {
-  min-width: 36px;
+  color: #c3fb5b;
+  min-width: 28px;
   padding-right: 2px;
 }
 
+.entry-row:hover,
+.entry-list row:hover,
+listbox row.entry-row:hover {
+  background: #3b304a;
+  background-color: #3b304a;
+}
+
 .entry-row:selected,
-.entry-row:hover {
-  background: rgba(74, 59, 95, 0.92);
+.entry-row.selected-entry,
+.entry-list row:selected,
+.entry-list row:selected:hover,
+listbox row.entry-row:selected,
+listbox row.entry-row:selected:hover {
+  background: #453657;
+  background-color: #453657;
+  color: #f0eafd;
+}
+
+.entry-row.selected-entry .entry-row-content,
+.entry-list row:selected .entry-row-content,
+listbox row.entry-row:selected .entry-row-content {
+  background: #453657;
+  background-color: #453657;
+}
+
+.entry-row.selected-entry label,
+.entry-row.selected-entry .entry-title,
+.entry-list row:selected label,
+.entry-list row:selected .entry-title,
+listbox row.entry-row:selected label,
+listbox row.entry-row:selected .entry-title {
+  color: #f0eafd;
+}
+
+.entry-row.selected-entry .entry-subtitle,
+.entry-list row:selected .entry-subtitle,
+listbox row.entry-row:selected .entry-subtitle {
+  color: #c8bed6;
+}
+
+.entry-row.selected-entry image,
+.entry-list row:selected image,
+listbox row.entry-row:selected image {
+  color: #c3fb5b;
 }
 
 .entry-title {
@@ -94,15 +159,15 @@ window {
 
 .details-panel {
   border-top: 1px solid rgba(220, 217, 231, 0.10);
-  padding-top: 10px;
+  padding-top: 7px;
 }
 
 .details-row {
-  min-height: 22px;
+  min-height: 18px;
 }
 
 .details-key {
-  min-width: 96px;
+  min-width: 82px;
 }
 
 .details-value {
@@ -110,20 +175,22 @@ window {
 }
 
 .ocr-button {
-  background: rgba(195, 251, 91, 0.10);
-  border: 1px solid rgba(195, 251, 91, 0.35);
-  color: #c3fb5b;
+  background: #c3fb5b;
+  border: 1px solid #c3fb5b;
+  color: #11130f;
   font-weight: 600;
-  min-height: 20px;
-  min-width: 38px;
-  padding: 0 6px;
+  min-height: 18px;
+  min-width: 32px;
+  padding: 0 5px;
 }
 
 .kind-badge {
-  background: rgba(195, 251, 91, 0.14);
+  background: #c3fb5b;
   border-radius: 0;
-  color: #c3fb5b;
-  padding: 2px 6px;
+  color: #11130f;
+  min-height: 18px;
+  min-width: 20px;
+  padding: 1px 4px;
 }
 
 .preview-text {
@@ -131,7 +198,7 @@ window {
   border: 1px solid rgba(220, 217, 231, 0.10);
   border-radius: 0;
   color: #dcd9e7;
-  padding: 12px;
+  padding: 8px;
 }
 
 .color-swatch {
@@ -145,18 +212,22 @@ textview text {
 }
 
 button {
-  background: rgba(42, 42, 44, 0.92);
-  border: 1px solid rgba(220, 217, 231, 0.12);
+  background: #2a2a2c;
+  border: 1px solid #4a4653;
   border-radius: 0;
   color: #dcd9e7;
-  min-height: 22px;
-  padding: 1px 8px;
+  min-height: 20px;
+  padding: 0 6px;
+}
+
+button label {
+  color: inherit;
 }
 
 button:hover {
-  background: rgba(74, 59, 95, 0.92);
+  background: #3b304a;
 }
 
 .ocr-button:hover {
-  background: rgba(195, 251, 91, 0.18);
+  background: #d4ff76;
 }

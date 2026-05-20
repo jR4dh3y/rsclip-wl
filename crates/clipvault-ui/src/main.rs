@@ -91,8 +91,8 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
     let window = gtk::ApplicationWindow::builder()
         .application(app)
         .title("Clipvault")
-        .default_width(920)
-        .default_height(620)
+        .default_width(760)
+        .default_height(480)
         .resizable(false)
         .build();
     window.add_css_class("clipvault-window");
@@ -102,7 +102,7 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
     shell.add_css_class("app-shell");
     window.set_child(Some(&shell));
 
-    let topbar = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+    let topbar = gtk::Box::new(gtk::Orientation::Horizontal, 7);
     topbar.add_css_class("topbar");
     shell.append(&topbar);
 
@@ -133,42 +133,43 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
     shell.append(&paned);
 
     let list_scroller = gtk::ScrolledWindow::builder()
-        .min_content_width(260)
+        .min_content_width(220)
         .vexpand(true)
         .hscrollbar_policy(gtk::PolicyType::Never)
         .build();
     list_scroller.add_css_class("sidebar");
     let list = gtk::ListBox::new();
+    list.add_css_class("entry-list");
     list.set_selection_mode(gtk::SelectionMode::Single);
     list_scroller.set_child(Some(&list));
     let list_adjustment = list_scroller.vadjustment();
     list.set_adjustment(Some(&list_adjustment));
     paned.set_start_child(Some(&list_scroller));
 
-    let preview_shell = gtk::Box::new(gtk::Orientation::Vertical, 12);
+    let preview_shell = gtk::Box::new(gtk::Orientation::Vertical, 8);
     preview_shell.set_vexpand(true);
     preview_shell.add_css_class("preview-pane");
 
-    let preview = gtk::Box::new(gtk::Orientation::Vertical, 12);
+    let preview = gtk::Box::new(gtk::Orientation::Vertical, 8);
     preview.set_vexpand(true);
     let preview_scroller = gtk::ScrolledWindow::builder()
-        .min_content_width(180)
-        .min_content_height(80)
+        .min_content_width(150)
+        .min_content_height(64)
         .vexpand(true)
         .hscrollbar_policy(gtk::PolicyType::Never)
         .child(&preview)
         .build();
     preview_shell.append(&preview_scroller);
 
-    let details = gtk::Box::new(gtk::Orientation::Vertical, 6);
+    let details = gtk::Box::new(gtk::Orientation::Vertical, 4);
     details.add_css_class("details-panel");
     details.set_hexpand(true);
     preview_shell.append(&details);
 
     paned.set_end_child(Some(&preview_shell));
-    paned.set_position(360);
+    paned.set_position(290);
 
-    let footer_bar = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    let footer_bar = gtk::Box::new(gtk::Orientation::Horizontal, 6);
     footer_bar.set_valign(gtk::Align::Center);
     footer_bar.add_css_class("footer");
 
@@ -286,7 +287,8 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
 
     {
         let state = Rc::clone(&state);
-        list.connect_row_selected(move |_, row| {
+        list.connect_row_selected(move |list, row| {
+            mark_selected_row(list, row);
             if let Some(row) = row {
                 let index = row.index();
                 if index >= 0 {
@@ -759,10 +761,9 @@ fn entry_row(entry: &ClipboardEntry) -> gtk::ListBoxRow {
     row.add_css_class("entry-row");
 
     let outer = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-    let icon = gtk::Label::new(Some(kind_icon(entry)));
-    icon.add_css_class("entry-kind");
-    icon.set_width_request(36);
-    icon.set_xalign(0.5);
+    outer.add_css_class("entry-row-content");
+    outer.set_hexpand(true);
+    let icon = row_icon(entry_icon_name(entry), entry_kind_label(entry));
     outer.append(&icon);
 
     let text = gtk::Box::new(gtk::Orientation::Vertical, 3);
@@ -781,8 +782,7 @@ fn entry_row(entry: &ClipboardEntry) -> gtk::ListBoxRow {
     outer.append(&text);
 
     if entry.pinned {
-        let pinned = gtk::Label::new(Some("PIN"));
-        pinned.add_css_class("kind-badge");
+        let pinned = badge_icon("view-pin-symbolic", "Pinned");
         outer.append(&pinned);
     }
 
@@ -795,11 +795,8 @@ fn secret_row(secret: &SecretEntry) -> gtk::ListBoxRow {
     row.add_css_class("entry-row");
 
     let outer = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-    let icon = gtk::Label::new(Some("KEY"));
-    icon.add_css_class("entry-kind");
-    icon.set_width_request(36);
-    icon.set_xalign(0.5);
-    outer.append(&icon);
+    outer.add_css_class("entry-row-content");
+    outer.set_hexpand(true);
 
     let text = gtk::Box::new(gtk::Orientation::Vertical, 3);
     text.set_hexpand(true);
@@ -820,10 +817,6 @@ fn secret_row(secret: &SecretEntry) -> gtk::ListBoxRow {
     subtitle.set_ellipsize(gtk::pango::EllipsizeMode::End);
     text.append(&subtitle);
     outer.append(&text);
-
-    let badge = gtk::Label::new(Some("SECRET"));
-    badge.add_css_class("kind-badge");
-    outer.append(&badge);
 
     row.set_child(Some(&outer));
     row
@@ -1383,6 +1376,18 @@ fn clear_box_like(list: &gtk::ListBox) {
     }
 }
 
+fn mark_selected_row(list: &gtk::ListBox, selected: Option<&gtk::ListBoxRow>) {
+    let mut child = list.first_child();
+    while let Some(widget) = child {
+        child = widget.next_sibling();
+        widget.remove_css_class("selected-entry");
+    }
+
+    if let Some(row) = selected {
+        row.add_css_class("selected-entry");
+    }
+}
+
 fn set_footer(state: &Rc<AppState>, text: &str) {
     state.footer.set_text(text);
 }
@@ -1402,19 +1407,46 @@ fn muted_label(text: &str) -> gtk::Label {
     label
 }
 
-fn kind_icon(entry: &ClipboardEntry) -> &'static str {
+fn row_icon(icon_name: &str, tooltip: &str) -> gtk::Image {
+    let icon = gtk::Image::from_icon_name(icon_name);
+    icon.add_css_class("entry-kind");
+    icon.set_tooltip_text(Some(tooltip));
+    icon.set_pixel_size(16);
+    icon
+}
+
+fn badge_icon(icon_name: &str, tooltip: &str) -> gtk::Image {
+    let icon = gtk::Image::from_icon_name(icon_name);
+    icon.add_css_class("kind-badge");
+    icon.set_tooltip_text(Some(tooltip));
+    icon.set_pixel_size(12);
+    icon
+}
+
+fn entry_icon_name(entry: &ClipboardEntry) -> &'static str {
     match entry.kind {
-        EntryKind::Text => "T",
-        EntryKind::Image => "IMG",
+        EntryKind::Text => "text-x-generic-symbolic",
+        EntryKind::Image => "image-x-generic-symbolic",
         EntryKind::Link => match entry.link_icon.as_deref() {
-            Some("github") => "GH",
-            Some("youtube") => "YT",
-            Some("rust") => "RS",
-            _ => "URL",
+            Some("github") => "code-context-symbolic",
+            Some("youtube") => "video-x-generic-symbolic",
+            Some("rust") => "application-x-executable-symbolic",
+            _ => "emblem-shared-symbolic",
         },
-        EntryKind::Color => "COL",
-        EntryKind::File => "FILE",
-        EntryKind::Unknown => "?",
+        EntryKind::Color => "color-select-symbolic",
+        EntryKind::File => "folder-symbolic",
+        EntryKind::Unknown => "dialog-question-symbolic",
+    }
+}
+
+fn entry_kind_label(entry: &ClipboardEntry) -> &'static str {
+    match entry.kind {
+        EntryKind::Text => "Text",
+        EntryKind::Image => "Image",
+        EntryKind::Link => "Link",
+        EntryKind::Color => "Color",
+        EntryKind::File => "File",
+        EntryKind::Unknown => "Unknown",
     }
 }
 
