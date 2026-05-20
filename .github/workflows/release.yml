@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version without the leading v
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -23,37 +29,44 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install build dependencies
+      - name: Resolve version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libgtk-4-dev \
-            libgtk4-layer-shell-dev \
-            pkg-config \
-            zstd
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            version="${INPUT_VERSION}"
+          else
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Build release archive
         env:
-          VERSION: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          version="${VERSION#v}"
-          ./scripts/build-release-archive.sh "${version}"
+          docker run --rm \
+            -v "$PWD":/work \
+            -w /work \
+            archlinux:base-devel \
+            bash -lc '
+              pacman -Syu --noconfirm --needed \
+                base-devel \
+                cargo \
+                gtk4 \
+                gtk4-layer-shell \
+                rust \
+                zstd
+              ./scripts/build-release-archive.sh "'"${VERSION}"'"
+            '
 
       - name: Publish GitHub release assets
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ steps.version.outputs.version }}
           files: |
             dist/*.tar.zst
             dist/*.tar.zst.sha256
-
-      - name: Extract version
-        id: version
-        run: |
-          version="${GITHUB_REF_NAME#v}"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Extract checksum
         id: checksum
