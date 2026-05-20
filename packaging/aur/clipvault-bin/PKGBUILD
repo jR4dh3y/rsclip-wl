@@ -21,7 +21,7 @@ conflicts=('clipvault')
 source=(
   "${pkgname}-${pkgver}.tar.zst::${url}/releases/download/v${pkgver}/clipvault-${pkgver}-x86_64.tar.zst"
 )
-sha256sums=('88bcac4cbfbfe28b6c37d7acb779455229e4dbae06408a32fb8d7ed88ab468a8')
+sha256sums=('fed8563714223dae08eafdad11b0b528a03208b72d83b01c884f0a61b877c135')
 
 package() {
   install -d "${pkgdir}"
