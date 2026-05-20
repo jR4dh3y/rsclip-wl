@@ -90,12 +90,11 @@ jobs:
 
           sed -i "s/^pkgver=.*/pkgver=${VERSION}/" "${pkgdir}/PKGBUILD"
           sed -i "s/^sha256sums=.*/sha256sums=('${CHECKSUM}')/" "${pkgdir}/PKGBUILD"
-
-          sed -i "s/^\([[:space:]]*pkgver = \).*/\1${VERSION}/" "${pkgdir}/.SRCINFO"
-          sed -i "s/^\([[:space:]]*sha256sums = \).*/\1${CHECKSUM}/" "${pkgdir}/.SRCINFO"
-          sed -i "s|${AUR_PKGNAME}-[0-9]\\+\\.[0-9]\\+\\.[0-9]\\+\\.tar\\.zst|${AUR_PKGNAME}-${VERSION}.tar.zst|g" "${pkgdir}/.SRCINFO"
-          sed -i "s|/v[0-9]\\+\\.[0-9]\\+\\.[0-9]\\+/|/v${VERSION}/|g" "${pkgdir}/.SRCINFO"
-          sed -i "s|${RELEASE_ARCHIVE_NAME}-[0-9]\\+\\.[0-9]\\+\\.[0-9]\\+-x86_64|${RELEASE_ARCHIVE_NAME}-${VERSION}-x86_64|g" "${pkgdir}/.SRCINFO"
+          (
+            cd "${pkgdir}"
+            makepkg --printsrcinfo > .SRCINFO.new
+            mv .SRCINFO.new .SRCINFO
+          )
 
       - name: Configure AUR SSH key
         env:
