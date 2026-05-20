@@ -2,7 +2,7 @@
 Type=Application
 Name=rsclip
 Comment=Clipboard history for Wayland
-Exec=rsclip
+Exec=rsclip show
 Icon=edit-paste
 Terminal=false
 Categories=Utility;GTK;

@@ -2,9 +2,9 @@ use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use rsclip_core::models::{ClipboardEntry, EntryFilter, SecretEntry, SortMode};
 use gtk::prelude::*;
 use gtk4 as gtk;
+use rsclip_core::models::{ClipboardEntry, EntryFilter, SecretEntry, SortMode};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum AppView {
@@ -20,6 +20,7 @@ pub(crate) struct AppState {
     pub(crate) filter: RefCell<EntryFilter>,
     pub(crate) sort: RefCell<SortMode>,
     pub(crate) view: RefCell<AppView>,
+    pub(crate) dirty: RefCell<bool>,
     pub(crate) prompt_active: RefCell<bool>,
     pub(crate) search_entry: gtk::SearchEntry,
     pub(crate) filter_select: gtk::DropDown,

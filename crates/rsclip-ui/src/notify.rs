@@ -5,14 +5,19 @@ use std::path::Path;
 use std::rc::Rc;
 
 use anyhow::{Context, Result};
-use rsclip_core::notify::CHANGE_EVENT;
 use gtk4 as gtk;
+use gtk4::prelude::*;
+use rsclip_core::notify::CHANGE_EVENT;
 
 use crate::actions::refresh::refresh_entries_if_changed;
 use crate::actions::set_footer;
 use crate::state::AppState;
 
-pub(crate) fn install_change_listener(state: &Rc<AppState>, socket_path: &Path) -> Result<()> {
+pub(crate) fn install_change_listener(
+    state: &Rc<AppState>,
+    window: &gtk::ApplicationWindow,
+    socket_path: &Path,
+) -> Result<()> {
     match std::fs::remove_file(socket_path) {
         Ok(()) => {}
         Err(err) if err.kind() == ErrorKind::NotFound => {}
@@ -35,6 +40,7 @@ pub(crate) fn install_change_listener(state: &Rc<AppState>, socket_path: &Path) 
 
     {
         let state = Rc::clone(state);
+        let window = window.clone();
         gtk::glib::source::unix_fd_add_local(fd, gtk::glib::IOCondition::IN, move |_, _| {
             let mut buf = [0_u8; 64];
             let mut changed = false;
@@ -51,8 +57,14 @@ pub(crate) fn install_change_listener(state: &Rc<AppState>, socket_path: &Path) 
                 }
             }
 
-            if changed && let Err(err) = refresh_entries_if_changed(&state) {
-                set_footer(&state, &format!("Refresh failed: {err:#}"));
+            if changed {
+                *state.dirty.borrow_mut() = true;
+                if window.is_visible() {
+                    match refresh_entries_if_changed(&state) {
+                        Ok(()) => *state.dirty.borrow_mut() = false,
+                        Err(err) => set_footer(&state, &format!("Refresh failed: {err:#}")),
+                    }
+                }
             }
             gtk::glib::ControlFlow::Continue
         });

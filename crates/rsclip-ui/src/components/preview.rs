@@ -1,11 +1,11 @@
 use std::rc::Rc;
 
-use rsclip_core::colors::parse_color;
-use rsclip_core::format::masked_secret;
-use rsclip_core::models::{ClipboardEntry, EntryKind, SecretEntry};
 use gtk::gdk;
 use gtk::prelude::*;
 use gtk4 as gtk;
+use rsclip_core::colors::parse_color;
+use rsclip_core::format::masked_secret;
+use rsclip_core::models::{ClipboardEntry, EntryKind, SecretEntry};
 
 use crate::components::details::{render_details, render_secret_details};
 use crate::components::labels::{muted_label, section_label};
@@ -170,6 +170,13 @@ pub(crate) fn render_preview(state: &Rc<AppState>, entry: &ClipboardEntry) {
     }
 
     render_details(&state.details, entry);
+}
+
+pub(crate) fn clear_preview_state(state: &Rc<AppState>) {
+    crate::components::clear_box(&state.preview);
+    crate::components::clear_box(&state.details);
+    state.ocr_button.set_opacity(0.0);
+    state.ocr_button.set_sensitive(false);
 }
 
 fn render_image_preview(container: &gtk::Box, entry: &ClipboardEntry) {

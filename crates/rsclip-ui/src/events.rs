@@ -1,9 +1,9 @@
 use std::rc::Rc;
 
-use rsclip_core::models::{EntryFilter, EntryKind};
 use gtk::gdk;
 use gtk::prelude::*;
 use gtk4 as gtk;
+use rsclip_core::models::{EntryFilter, EntryKind};
 
 use crate::actions::clipboard::{copy_secret, copy_selected_entry};
 use crate::actions::ocr::run_ocr_for_entry;
@@ -16,18 +16,14 @@ use crate::actions::{set_footer, update_mode_controls};
 use crate::components::preview::{render_preview, render_secret_preview};
 use crate::state::{AppState, AppView, current_entry, current_secret};
 
-pub(crate) fn connect(
-    state: &Rc<AppState>,
-    app: &gtk::Application,
-    window: &gtk::ApplicationWindow,
-) {
+pub(crate) fn connect(state: &Rc<AppState>, window: &gtk::ApplicationWindow) {
     connect_mode_buttons(state);
     connect_ocr_button(state);
     connect_search(state);
     connect_filter(state);
     connect_list_selection(state);
-    connect_list_activation(state, app, window);
-    connect_keyboard(state, app, window);
+    connect_list_activation(state, window);
+    connect_keyboard(state, window);
 }
 
 fn connect_mode_buttons(state: &Rc<AppState>) {
@@ -131,14 +127,9 @@ fn connect_list_selection(state: &Rc<AppState>) {
     });
 }
 
-fn connect_list_activation(
-    state: &Rc<AppState>,
-    app: &gtk::Application,
-    window: &gtk::ApplicationWindow,
-) {
+fn connect_list_activation(state: &Rc<AppState>, window: &gtk::ApplicationWindow) {
     let list = state.list.clone();
     let state = Rc::clone(state);
-    let app = app.clone();
     let window = window.clone();
     list.connect_row_activated(move |_, row| match *state.view.borrow() {
         AppView::Clipboard => {
@@ -147,7 +138,7 @@ fn connect_list_activation(
                     set_footer(&state, &format!("Paste failed: {err:#}"));
                     return;
                 }
-                crate::window::close_overlay_and_paste(&app, &window);
+                crate::window::close_overlay_and_paste(&state, &window);
             }
         }
         AppView::Secrets => {
@@ -156,18 +147,17 @@ fn connect_list_activation(
                     set_footer(&state, &format!("Copy failed: {err:#}"));
                     return;
                 }
-                app.quit();
+                crate::window::hide_overlay(&state, &window);
             }
         }
     });
 }
 
-fn connect_keyboard(state: &Rc<AppState>, app: &gtk::Application, window: &gtk::ApplicationWindow) {
+fn connect_keyboard(state: &Rc<AppState>, window: &gtk::ApplicationWindow) {
     let controller = gtk::EventControllerKey::new();
     controller.set_propagation_phase(gtk::PropagationPhase::Capture);
     {
         let state = Rc::clone(state);
-        let app = app.clone();
         let window = window.clone();
         controller.connect_key_pressed(move |_, key, _, modifiers| {
             if *state.prompt_active.borrow() {
@@ -185,11 +175,11 @@ fn connect_keyboard(state: &Rc<AppState>, app: &gtk::Application, window: &gtk::
                     gtk::glib::Propagation::Stop
                 }
                 (gdk::Key::Escape, _) => {
-                    app.quit();
+                    crate::window::hide_overlay(&state, &window);
                     gtk::glib::Propagation::Stop
                 }
                 (gdk::Key::Return | gdk::Key::KP_Enter, false) => {
-                    handle_enter(&state, &app, &window);
+                    handle_enter(&state, &window);
                     gtk::glib::Propagation::Stop
                 }
                 (gdk::Key::Return | gdk::Key::KP_Enter, true) => {
@@ -284,14 +274,14 @@ fn connect_keyboard(state: &Rc<AppState>, app: &gtk::Application, window: &gtk::
     window.add_controller(controller);
 }
 
-fn handle_enter(state: &Rc<AppState>, app: &gtk::Application, window: &gtk::ApplicationWindow) {
+fn handle_enter(state: &Rc<AppState>, window: &gtk::ApplicationWindow) {
     match *state.view.borrow() {
         AppView::Clipboard => {
             if let Some(entry) = current_entry(state) {
                 if let Err(err) = copy_selected_entry(state, &entry) {
                     set_footer(state, &format!("Paste failed: {err:#}"));
                 } else {
-                    crate::window::close_overlay_and_paste(app, window);
+                    crate::window::close_overlay_and_paste(state, window);
                 }
             }
         }
@@ -300,7 +290,7 @@ fn handle_enter(state: &Rc<AppState>, app: &gtk::Application, window: &gtk::Appl
                 if let Err(err) = copy_secret(state, &secret) {
                     set_footer(state, &format!("Copy failed: {err:#}"));
                 } else {
-                    app.quit();
+                    crate::window::hide_overlay(state, window);
                 }
             }
         }
