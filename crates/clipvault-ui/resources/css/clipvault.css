@@ -46,6 +46,16 @@ window {
   color: #dcd9e7;
 }
 
+.topbar-count {
+  background: #2a2a2c;
+  border: 1px solid #4a4653;
+  color: #dcd9e7;
+  font-weight: 600;
+  min-height: 24px;
+  min-width: 68px;
+  padding: 0 8px;
+}
+
 .mode-button {
   min-height: 26px;
   padding-left: 10px;

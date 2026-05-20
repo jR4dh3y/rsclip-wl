@@ -25,6 +25,7 @@ pub(crate) struct AppState {
     pub(crate) filter_select: gtk::DropDown,
     pub(crate) history_button: gtk::Button,
     pub(crate) secrets_button: gtk::Button,
+    pub(crate) count_label: gtk::Label,
     pub(crate) list: gtk::ListBox,
     pub(crate) list_adjustment: gtk::Adjustment,
     pub(crate) preview: gtk::Box,

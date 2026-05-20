@@ -96,12 +96,12 @@ fn render_clipboard_list(state: &Rc<AppState>, selected_id: Option<i64>) {
             .preview
             .append(&muted_label("No clipboard entries yet"));
     }
+    state
+        .count_label
+        .set_text(&format!("Entries {}", state.entries.borrow().len()));
     set_footer(
         state,
-        &format!(
-            "{} entries | Enter: paste | Ctrl+Enter: copy | Ctrl+S: secret | Ctrl+P: pin | Ctrl+D: delete | Esc: close",
-            state.entries.borrow().len()
-        ),
+        "Enter: paste | Ctrl+Enter: copy | Ctrl+S: secret | Ctrl+P: pin | Ctrl+D: delete | Esc: close",
     );
 }
 
@@ -133,11 +133,11 @@ fn render_secrets_list(state: &Rc<AppState>, selected_id: Option<i64>) {
         crate::components::clear_box(&state.details);
         state.preview.append(&muted_label("No secrets saved yet"));
     }
+    state
+        .count_label
+        .set_text(&format!("Secrets {}", state.secrets.borrow().len()));
     set_footer(
         state,
-        &format!(
-            "{} secrets | Enter: copy | Ctrl+S: copy | Ctrl+E: rename | Ctrl+D: delete | Esc: close",
-            state.secrets.borrow().len()
-        ),
+        "Enter: copy | Ctrl+S: copy | Ctrl+E: rename | Ctrl+D: delete | Esc: close",
     );
 }

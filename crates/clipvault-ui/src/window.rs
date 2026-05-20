@@ -67,6 +67,7 @@ pub(crate) fn build_ui(app: &gtk::Application) -> Result<()> {
         filter_select: topbar.filter.clone(),
         history_button: topbar.history_button.clone(),
         secrets_button: topbar.secrets_button.clone(),
+        count_label: topbar.count.clone(),
         list: list_panel.list.clone(),
         list_adjustment: list_panel.adjustment,
         preview: preview_panel.preview.clone(),

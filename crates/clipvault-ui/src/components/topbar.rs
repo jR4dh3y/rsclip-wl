@@ -7,6 +7,7 @@ pub(crate) struct Topbar {
     pub(crate) secrets_button: gtk::Button,
     pub(crate) search: gtk::SearchEntry,
     pub(crate) filter: gtk::DropDown,
+    pub(crate) count: gtk::Label,
 }
 
 pub(crate) fn build() -> Topbar {
@@ -34,11 +35,18 @@ pub(crate) fn build() -> Topbar {
     filter.set_selected(0);
     container.append(&filter);
 
+    let count = gtk::Label::new(Some("Entries 0"));
+    count.add_css_class("topbar-count");
+    count.set_width_chars(10);
+    count.set_xalign(0.5);
+    container.append(&count);
+
     Topbar {
         container,
         history_button,
         secrets_button,
         search,
         filter,
+        count,
     }
 }
