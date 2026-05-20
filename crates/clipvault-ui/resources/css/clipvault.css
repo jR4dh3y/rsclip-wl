@@ -124,7 +124,7 @@ window {
 }
 
 .color-swatch {
-  min-height: 148px;
+  min-height: 1px;
 }
 
 textview,

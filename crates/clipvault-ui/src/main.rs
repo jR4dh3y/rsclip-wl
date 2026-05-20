@@ -48,6 +48,7 @@ struct AppState {
     filter: RefCell<EntryFilter>,
     sort: RefCell<SortMode>,
     list: gtk::ListBox,
+    list_adjustment: gtk::Adjustment,
     preview: gtk::Box,
     details: gtk::Box,
     footer: gtk::Label,
@@ -96,7 +97,7 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
     shell.append(&paned);
 
     let list_scroller = gtk::ScrolledWindow::builder()
-        .min_content_width(340)
+        .min_content_width(260)
         .vexpand(true)
         .hscrollbar_policy(gtk::PolicyType::Never)
         .build();
@@ -104,6 +105,8 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
     let list = gtk::ListBox::new();
     list.set_selection_mode(gtk::SelectionMode::Single);
     list_scroller.set_child(Some(&list));
+    let list_adjustment = list_scroller.vadjustment();
+    list.set_adjustment(Some(&list_adjustment));
     paned.set_start_child(Some(&list_scroller));
 
     let preview_shell = gtk::Box::new(gtk::Orientation::Vertical, 12);
@@ -113,7 +116,8 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
     let preview = gtk::Box::new(gtk::Orientation::Vertical, 12);
     preview.set_vexpand(true);
     let preview_scroller = gtk::ScrolledWindow::builder()
-        .min_content_width(480)
+        .min_content_width(180)
+        .min_content_height(80)
         .vexpand(true)
         .hscrollbar_policy(gtk::PolicyType::Never)
         .child(&preview)
@@ -158,6 +162,7 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
         filter: RefCell::new(EntryFilter::All),
         sort: RefCell::new(SortMode::Default),
         list: list.clone(),
+        list_adjustment,
         preview: preview.clone(),
         details: details.clone(),
         footer,
@@ -486,12 +491,22 @@ fn render_preview(state: &Rc<AppState>, entry: &ClipboardEntry) {
 fn render_image_preview(container: &gtk::Box, entry: &ClipboardEntry) {
     if let Some(path) = entry.file_path.as_deref() {
         let file = gio::File::for_path(path);
-        let picture = gtk::Picture::for_file(&file);
-        picture.set_content_fit(gtk::ContentFit::Contain);
-        picture.set_hexpand(true);
-        picture.set_vexpand(true);
-        picture.set_size_request(360, 300);
-        container.append(&picture);
+        if let Ok(texture) = gdk::Texture::from_file(&file) {
+            let ratio = (texture.width() as f32 / texture.height().max(1) as f32).clamp(0.2, 8.0);
+            let frame = gtk::AspectFrame::new(0.5, 0.5, ratio, false);
+            frame.set_hexpand(true);
+            frame.set_vexpand(true);
+
+            let picture = gtk::Picture::for_paintable(&texture);
+            picture.set_content_fit(gtk::ContentFit::Contain);
+            picture.set_can_shrink(true);
+            picture.set_hexpand(true);
+            picture.set_vexpand(true);
+            frame.set_child(Some(&picture));
+            container.append(&frame);
+        } else {
+            container.append(&muted_label("Image preview is unavailable"));
+        }
     } else {
         container.append(&muted_label("Image file is missing"));
     }
@@ -499,18 +514,22 @@ fn render_image_preview(container: &gtk::Box, entry: &ClipboardEntry) {
 
 fn render_color_preview(container: &gtk::Box, entry: &ClipboardEntry) {
     if let Some(hex) = entry.color_value.as_deref() {
+        let frame = gtk::AspectFrame::new(0.5, 0.5, 16.0 / 9.0, false);
+        frame.set_hexpand(true);
+        frame.set_vexpand(true);
+
         let swatch = gtk::DrawingArea::new();
         swatch.add_css_class("color-swatch");
-        swatch.set_content_width(400);
-        swatch.set_content_height(220);
         swatch.set_hexpand(true);
+        swatch.set_vexpand(true);
         let color = parse_hex_rgb(hex).unwrap_or((0.2, 0.2, 0.2));
         swatch.set_draw_func(move |_, cr, width, height| {
             cr.set_source_rgb(color.0, color.1, color.2);
             cr.rectangle(0.0, 0.0, f64::from(width), f64::from(height));
             let _ = cr.fill();
         });
-        container.append(&swatch);
+        frame.set_child(Some(&swatch));
+        container.append(&frame);
         render_text_preview(container, Some(hex));
     }
 }
@@ -527,7 +546,7 @@ fn render_text_preview(container: &gtk::Box, text: Option<&str>) {
     view.set_vexpand(true);
 
     let scroller = gtk::ScrolledWindow::builder()
-        .min_content_height(240)
+        .min_content_height(80)
         .hscrollbar_policy(gtk::PolicyType::Never)
         .child(&view)
         .build();
@@ -625,7 +644,31 @@ fn move_selection(state: &Rc<AppState>, delta: i32) {
     let next = (current + delta).clamp(0, count - 1);
     if let Some(row) = state.list.row_at_index(next) {
         state.list.select_row(Some(&row));
+        scroll_row_into_view(state, &row);
     }
+}
+
+fn scroll_row_into_view(state: &Rc<AppState>, row: &gtk::ListBoxRow) {
+    let Some(bounds) = row.compute_bounds(&state.list) else {
+        return;
+    };
+
+    let adjustment = &state.list_adjustment;
+    let viewport_top = adjustment.value();
+    let viewport_bottom = viewport_top + adjustment.page_size();
+    let row_top = f64::from(bounds.y());
+    let row_bottom = row_top + f64::from(bounds.height());
+
+    let target = if row_top < viewport_top {
+        row_top
+    } else if row_bottom > viewport_bottom {
+        row_bottom - adjustment.page_size()
+    } else {
+        return;
+    };
+
+    let max_value = (adjustment.upper() - adjustment.page_size()).max(adjustment.lower());
+    adjustment.set_value(target.clamp(adjustment.lower(), max_value));
 }
 
 fn paste_selected(state: &Rc<AppState>, entry: &ClipboardEntry, auto_paste: bool) -> Result<()> {
