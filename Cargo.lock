@@ -131,51 +131,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "clipvault-core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "blake3",
- "chrono",
- "directories",
- "once_cell",
- "regex",
- "rusqlite",
- "serde",
- "serde_json",
- "thiserror",
- "url",
-]
-
-[[package]]
-name = "clipvault-daemon"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "clipvault-core",
- "serde_json",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "clipvault-ui"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "clipvault-core",
- "gio",
- "glib",
- "gtk4",
- "gtk4-layer-shell",
- "serde_json",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "constant_time_eq"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1053,6 +1008,51 @@ name = "regex-syntax"
 version = "0.8.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
+
+[[package]]
+name = "rsclip-core"
+version = "0.1.1"
+dependencies = [
+ "anyhow",
+ "blake3",
+ "chrono",
+ "directories",
+ "once_cell",
+ "regex",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "url",
+]
+
+[[package]]
+name = "rsclip-daemon"
+version = "0.1.1"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "rsclip-core",
+ "serde_json",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "rsclip-ui"
+version = "0.1.1"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "gio",
+ "glib",
+ "gtk4",
+ "gtk4-layer-shell",
+ "rsclip-core",
+ "serde_json",
+ "tracing",
+ "tracing-subscriber",
+]
 
 [[package]]
 name = "rusqlite"

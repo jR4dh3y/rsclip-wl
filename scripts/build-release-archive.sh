@@ -6,7 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="${ROOT_DIR}/dist"
 VERSION="${1:-}"
 ARCHITECTURE="${2:-$(uname -m)}"
-ARCHIVE_STEM="clipvault-${VERSION}-${ARCHITECTURE}"
+ARCHIVE_STEM="rsclip-${VERSION}-${ARCHITECTURE}"
 STAGE_DIR="${DIST_DIR}/${ARCHIVE_STEM}"
 ARCHIVE_PATH="${DIST_DIR}/${ARCHIVE_STEM}.tar.zst"
 
@@ -26,24 +26,24 @@ mkdir -p "${DIST_DIR}"
 cargo build \
   --release \
   --locked \
-  -p clipvault-ui \
-  -p clipvault-daemon \
+  -p rsclip-ui \
+  -p rsclip-daemon \
   --bins
 
-install -Dm755 "${ROOT_DIR}/target/release/clipvault" \
-  "${STAGE_DIR}/usr/bin/clipvault"
-install -Dm755 "${ROOT_DIR}/target/release/clipvaultd" \
-  "${STAGE_DIR}/usr/bin/clipvaultd"
-install -Dm644 "${ROOT_DIR}/packaging/desktop/clipvault.desktop" \
-  "${STAGE_DIR}/usr/share/applications/clipvault.desktop"
-install -Dm644 "${ROOT_DIR}/packaging/systemd/clipvaultd.service" \
-  "${STAGE_DIR}/usr/lib/systemd/user/clipvaultd.service"
+install -Dm755 "${ROOT_DIR}/target/release/rsclip" \
+  "${STAGE_DIR}/usr/bin/rsclip"
+install -Dm755 "${ROOT_DIR}/target/release/rsclipd" \
+  "${STAGE_DIR}/usr/bin/rsclipd"
+install -Dm644 "${ROOT_DIR}/packaging/desktop/rsclip.desktop" \
+  "${STAGE_DIR}/usr/share/applications/rsclip.desktop"
+install -Dm644 "${ROOT_DIR}/packaging/systemd/rsclipd.service" \
+  "${STAGE_DIR}/usr/lib/systemd/user/rsclipd.service"
 install -Dm644 "${ROOT_DIR}/config.example.toml" \
-  "${STAGE_DIR}/usr/share/doc/clipvault/config.example.toml"
+  "${STAGE_DIR}/usr/share/doc/rsclip/config.example.toml"
 install -Dm644 "${ROOT_DIR}/README.md" \
-  "${STAGE_DIR}/usr/share/doc/clipvault/README.md"
+  "${STAGE_DIR}/usr/share/doc/rsclip/README.md"
 install -Dm644 "${ROOT_DIR}/LICENSE" \
-  "${STAGE_DIR}/usr/share/licenses/clipvault/LICENSE"
+  "${STAGE_DIR}/usr/share/licenses/rsclip/LICENSE"
 
 tar --zstd -cf "${ARCHIVE_PATH}" -C "${DIST_DIR}" "${ARCHIVE_STEM}"
 sha256sum "${ARCHIVE_PATH}" > "${ARCHIVE_PATH}.sha256"

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=rsclip
+Comment=Clipboard history for Wayland
+Exec=rsclip
+Icon=edit-paste
+Terminal=false
+Categories=Utility;GTK;
+StartupNotify=false

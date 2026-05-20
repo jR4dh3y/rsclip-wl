@@ -15,8 +15,8 @@ permissions:
   contents: write
 
 env:
-  AUR_PKGNAME: rsclip-wl-bin
-  RELEASE_ARCHIVE_NAME: clipvault
+  AUR_PKGNAME: rsclip-bin
+  RELEASE_ARCHIVE_NAME: rsclip
 
 jobs:
   build-release-archive:

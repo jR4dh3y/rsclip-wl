@@ -1,8 +1,8 @@
 [workspace]
 members = [
-  "crates/clipvault-core",
-  "crates/clipvault-daemon",
-  "crates/clipvault-ui",
+  "crates/rsclip-core",
+  "crates/rsclip-daemon",
+  "crates/rsclip-ui",
 ]
 resolver = "2"
 
