@@ -37,6 +37,17 @@ window {
   min-height: 30px;
 }
 
+.mode-button {
+  min-height: 30px;
+}
+
+.active-mode {
+  background: rgba(195, 251, 91, 0.14);
+  border-color: rgba(195, 251, 91, 0.35);
+  color: #c3fb5b;
+  font-weight: 600;
+}
+
 .sidebar {
   background: rgba(42, 42, 44, 0.62);
   border-top: 1px solid rgba(220, 217, 231, 0.08);

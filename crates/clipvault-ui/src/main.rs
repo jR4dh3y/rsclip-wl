@@ -1,18 +1,28 @@
 use std::cell::RefCell;
-use std::path::PathBuf;
+use std::io::ErrorKind;
+use std::os::fd::AsRawFd;
+use std::os::unix::net::UnixDatagram;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Local, Utc};
-use clipvault_core::models::{ClipboardEntry, EntryFilter, EntryKind, SortMode};
+use clipvault_core::models::{ClipboardEntry, EntryFilter, EntryKind, SecretEntry, SortMode};
+use clipvault_core::notify::CHANGE_EVENT;
 use clipvault_core::ocr::run_tesseract;
-use clipvault_core::paste::paste_entry;
+use clipvault_core::paste::{paste_entry, write_clipboard};
 use clipvault_core::{ClipvaultPaths, Database};
 use gtk::gdk;
 use gtk::prelude::*;
 use gtk4 as gtk;
 
 const APP_ID: &str = "io.github.radhey.clipvault";
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum AppView {
+    Clipboard,
+    Secrets,
+}
 
 fn main() {
     tracing_subscriber::fmt()
@@ -44,9 +54,15 @@ fn main() {
 struct AppState {
     db_path: PathBuf,
     entries: RefCell<Vec<ClipboardEntry>>,
+    secrets: RefCell<Vec<SecretEntry>>,
     query: RefCell<String>,
     filter: RefCell<EntryFilter>,
     sort: RefCell<SortMode>,
+    view: RefCell<AppView>,
+    search_entry: gtk::SearchEntry,
+    filter_select: gtk::DropDown,
+    history_button: gtk::Button,
+    secrets_button: gtk::Button,
     list: gtk::ListBox,
     list_adjustment: gtk::Adjustment,
     preview: gtk::Box,
@@ -78,6 +94,15 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
     let topbar = gtk::Box::new(gtk::Orientation::Horizontal, 10);
     topbar.add_css_class("topbar");
     shell.append(&topbar);
+
+    let history_button = gtk::Button::with_label("Clipboard");
+    history_button.add_css_class("mode-button");
+    history_button.add_css_class("active-mode");
+    topbar.append(&history_button);
+
+    let secrets_button = gtk::Button::with_label("Secrets");
+    secrets_button.add_css_class("mode-button");
+    topbar.append(&secrets_button);
 
     let search = gtk::SearchEntry::new();
     search.set_placeholder_text(Some("Search clipboard..."));
@@ -137,7 +162,7 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
     footer_bar.add_css_class("footer");
 
     let footer = gtk::Label::new(Some(
-        "Enter paste  Ctrl+Enter copy  Ctrl+P pin  Ctrl+D delete  Esc close",
+        "Enter paste  Ctrl+Enter copy  Ctrl+S save secret  Ctrl+P pin  Ctrl+D delete  Esc close",
     ));
     footer.add_css_class("footer-label");
     footer.add_css_class("muted");
@@ -158,9 +183,15 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
     let state = Rc::new(AppState {
         db_path: paths.db_path,
         entries: RefCell::new(Vec::new()),
+        secrets: RefCell::new(Vec::new()),
         query: RefCell::new(String::new()),
         filter: RefCell::new(EntryFilter::All),
         sort: RefCell::new(SortMode::Default),
+        view: RefCell::new(AppView::Clipboard),
+        search_entry: search.clone(),
+        filter_select: filter.clone(),
+        history_button: history_button.clone(),
+        secrets_button: secrets_button.clone(),
         list: list.clone(),
         list_adjustment,
         preview: preview.clone(),
@@ -170,6 +201,37 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
     });
 
     refresh_entries(&state)?;
+    install_change_listener(&state, &paths.socket_path)?;
+
+    {
+        let state = Rc::clone(&state);
+        let search = search.clone();
+        history_button.connect_clicked(move |_| {
+            *state.view.borrow_mut() = AppView::Clipboard;
+            *state.query.borrow_mut() = String::new();
+            search.set_text("");
+            search.set_placeholder_text(Some("Search clipboard..."));
+            update_mode_controls(&state);
+            if let Err(err) = refresh_entries(&state) {
+                set_footer(&state, &format!("Switch failed: {err:#}"));
+            }
+        });
+    }
+
+    {
+        let state = Rc::clone(&state);
+        let search = search.clone();
+        secrets_button.connect_clicked(move |_| {
+            *state.view.borrow_mut() = AppView::Secrets;
+            *state.query.borrow_mut() = String::new();
+            search.set_text("");
+            search.set_placeholder_text(Some("Search secrets by name..."));
+            update_mode_controls(&state);
+            if let Err(err) = refresh_entries(&state) {
+                set_footer(&state, &format!("Switch failed: {err:#}"));
+            }
+        });
+    }
 
     {
         let state = Rc::clone(&state);
@@ -217,8 +279,17 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
             if let Some(row) = row {
                 let index = row.index();
                 if index >= 0 {
-                    if let Some(entry) = state.entries.borrow().get(index as usize) {
-                        render_preview(&state, entry);
+                    match *state.view.borrow() {
+                        AppView::Clipboard => {
+                            if let Some(entry) = state.entries.borrow().get(index as usize) {
+                                render_preview(&state, entry);
+                            }
+                        }
+                        AppView::Secrets => {
+                            if let Some(secret) = state.secrets.borrow().get(index as usize) {
+                                render_secret_preview(&state, secret);
+                            }
+                        }
                     }
                 }
             }
@@ -228,13 +299,24 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
     {
         let state = Rc::clone(&state);
         let app = app.clone();
-        list.connect_row_activated(move |_, row| {
-            if let Some(entry) = state.entries.borrow().get(row.index() as usize).cloned() {
-                if let Err(err) = paste_selected(&state, &entry, true) {
-                    set_footer(&state, &format!("Paste failed: {err:#}"));
-                    return;
+        list.connect_row_activated(move |_, row| match *state.view.borrow() {
+            AppView::Clipboard => {
+                if let Some(entry) = state.entries.borrow().get(row.index() as usize).cloned() {
+                    if let Err(err) = paste_selected(&state, &entry, true) {
+                        set_footer(&state, &format!("Paste failed: {err:#}"));
+                        return;
+                    }
+                    app.quit();
                 }
-                app.quit();
+            }
+            AppView::Secrets => {
+                if let Some(secret) = state.secrets.borrow().get(row.index() as usize).cloned() {
+                    if let Err(err) = copy_secret(&state, &secret) {
+                        set_footer(&state, &format!("Copy failed: {err:#}"));
+                        return;
+                    }
+                    app.quit();
+                }
             }
         });
     }
@@ -244,6 +326,7 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
     {
         let state = Rc::clone(&state);
         let app = app.clone();
+        let window = window.clone();
         controller.connect_key_pressed(move |_, key, _, modifiers| {
             let ctrl = modifiers.contains(gdk::ModifierType::CONTROL_MASK);
             match (key, ctrl) {
@@ -260,34 +343,85 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
                     glib::Propagation::Stop
                 }
                 (gdk::Key::Return | gdk::Key::KP_Enter, false) => {
-                    if let Some(entry) = current_entry(&state) {
-                        if let Err(err) = paste_selected(&state, &entry, true) {
-                            set_footer(&state, &format!("Paste failed: {err:#}"));
-                        } else {
-                            app.quit();
+                    match *state.view.borrow() {
+                        AppView::Clipboard => {
+                            if let Some(entry) = current_entry(&state) {
+                                if let Err(err) = paste_selected(&state, &entry, true) {
+                                    set_footer(&state, &format!("Paste failed: {err:#}"));
+                                } else {
+                                    app.quit();
+                                }
+                            }
+                        }
+                        AppView::Secrets => {
+                            if let Some(secret) = current_secret(&state) {
+                                if let Err(err) = copy_secret(&state, &secret) {
+                                    set_footer(&state, &format!("Copy failed: {err:#}"));
+                                } else {
+                                    app.quit();
+                                }
+                            }
                         }
                     }
                     glib::Propagation::Stop
                 }
                 (gdk::Key::Return | gdk::Key::KP_Enter, true) => {
-                    if let Some(entry) = current_entry(&state) {
-                        if let Err(err) = paste_selected(&state, &entry, false) {
-                            set_footer(&state, &format!("Copy failed: {err:#}"));
-                        } else {
-                            set_footer(&state, "Copied selected entry");
+                    match *state.view.borrow() {
+                        AppView::Clipboard => {
+                            if let Some(entry) = current_entry(&state) {
+                                if let Err(err) = paste_selected(&state, &entry, false) {
+                                    set_footer(&state, &format!("Copy failed: {err:#}"));
+                                } else {
+                                    set_footer(&state, "Copied selected entry");
+                                }
+                            }
+                        }
+                        AppView::Secrets => {
+                            if let Some(secret) = current_secret(&state) {
+                                if let Err(err) = copy_secret(&state, &secret) {
+                                    set_footer(&state, &format!("Copy failed: {err:#}"));
+                                } else {
+                                    set_footer(&state, "Copied secret");
+                                }
+                            }
+                        }
+                    }
+                    glib::Propagation::Stop
+                }
+                (gdk::Key::s | gdk::Key::S, true) => {
+                    match *state.view.borrow() {
+                        AppView::Clipboard => {
+                            save_current_as_secret_dialog(&state, window.upcast_ref())
+                        }
+                        AppView::Secrets => {
+                            if let Some(secret) = current_secret(&state) {
+                                if let Err(err) = copy_secret(&state, &secret) {
+                                    set_footer(&state, &format!("Copy failed: {err:#}"));
+                                } else {
+                                    set_footer(&state, "Copied secret");
+                                }
+                            }
                         }
                     }
                     glib::Propagation::Stop
                 }
                 (gdk::Key::p | gdk::Key::P, true) => {
-                    if let Err(err) = toggle_pin(&state) {
-                        set_footer(&state, &format!("Pin failed: {err:#}"));
+                    if *state.view.borrow() == AppView::Clipboard {
+                        if let Err(err) = toggle_pin(&state) {
+                            set_footer(&state, &format!("Pin failed: {err:#}"));
+                        }
                     }
                     glib::Propagation::Stop
                 }
                 (gdk::Key::d | gdk::Key::D, true) => {
                     if let Err(err) = delete_current(&state) {
                         set_footer(&state, &format!("Delete failed: {err:#}"));
+                    }
+                    glib::Propagation::Stop
+                }
+                (gdk::Key::e | gdk::Key::E, true) => {
+                    if *state.view.borrow() == AppView::Secrets {
+                        rename_current_secret_dialog(&state, window.upcast_ref());
                     }
                     glib::Propagation::Stop
                 }
@@ -298,23 +432,40 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
                     glib::Propagation::Stop
                 }
                 (gdk::Key::i | gdk::Key::I, true) => {
-                    *state.filter.borrow_mut() = EntryFilter::Images;
-                    if let Err(err) = refresh_entries(&state) {
-                        set_footer(&state, &format!("Filter failed: {err:#}"));
+                    if *state.view.borrow() == AppView::Clipboard {
+                        *state.filter.borrow_mut() = EntryFilter::Images;
+                        if let Err(err) = refresh_entries(&state) {
+                            set_footer(&state, &format!("Filter failed: {err:#}"));
+                        }
                     }
                     glib::Propagation::Stop
                 }
                 (gdk::Key::l | gdk::Key::L, true) => {
-                    *state.filter.borrow_mut() = EntryFilter::Links;
-                    if let Err(err) = refresh_entries(&state) {
-                        set_footer(&state, &format!("Filter failed: {err:#}"));
+                    if *state.view.borrow() == AppView::Clipboard {
+                        *state.filter.borrow_mut() = EntryFilter::Links;
+                        if let Err(err) = refresh_entries(&state) {
+                            set_footer(&state, &format!("Filter failed: {err:#}"));
+                        }
                     }
                     glib::Propagation::Stop
                 }
                 (gdk::Key::c | gdk::Key::C, true) => {
-                    *state.filter.borrow_mut() = EntryFilter::Colors;
-                    if let Err(err) = refresh_entries(&state) {
-                        set_footer(&state, &format!("Filter failed: {err:#}"));
+                    match *state.view.borrow() {
+                        AppView::Clipboard => {
+                            *state.filter.borrow_mut() = EntryFilter::Colors;
+                            if let Err(err) = refresh_entries(&state) {
+                                set_footer(&state, &format!("Filter failed: {err:#}"));
+                            }
+                        }
+                        AppView::Secrets => {
+                            if let Some(secret) = current_secret(&state) {
+                                if let Err(err) = copy_secret(&state, &secret) {
+                                    set_footer(&state, &format!("Copy failed: {err:#}"));
+                                } else {
+                                    set_footer(&state, "Copied secret");
+                                }
+                            }
+                        }
                     }
                     glib::Propagation::Stop
                 }
@@ -375,24 +526,134 @@ fn load_css() {
     }
 }
 
+fn install_change_listener(state: &Rc<AppState>, socket_path: &Path) -> Result<()> {
+    match std::fs::remove_file(socket_path) {
+        Ok(()) => {}
+        Err(err) if err.kind() == ErrorKind::NotFound => {}
+        Err(err) => {
+            return Err(err).with_context(|| {
+                format!(
+                    "removing stale notification socket {}",
+                    socket_path.display()
+                )
+            });
+        }
+    }
+
+    let socket = UnixDatagram::bind(socket_path)
+        .with_context(|| format!("binding notification socket {}", socket_path.display()))?;
+    socket
+        .set_nonblocking(true)
+        .context("setting notification socket nonblocking")?;
+    let fd = socket.as_raw_fd();
+
+    {
+        let state = Rc::clone(state);
+        glib::source::unix_fd_add_local(fd, glib::IOCondition::IN, move |_, _| {
+            let mut buf = [0_u8; 64];
+            let mut changed = false;
+            loop {
+                match socket.recv(&mut buf) {
+                    Ok(size) => {
+                        changed |= &buf[..size] == CHANGE_EVENT;
+                    }
+                    Err(err) if err.kind() == ErrorKind::WouldBlock => break,
+                    Err(err) => {
+                        set_footer(&state, &format!("Notification listener failed: {err}"));
+                        return glib::ControlFlow::Break;
+                    }
+                }
+            }
+
+            if changed {
+                if let Err(err) = refresh_entries_if_changed(&state) {
+                    set_footer(&state, &format!("Refresh failed: {err:#}"));
+                }
+            }
+            glib::ControlFlow::Continue
+        });
+    }
+
+    Ok(())
+}
+
 fn refresh_entries(state: &Rc<AppState>) -> Result<()> {
     let db = Database::open(&state.db_path)?;
-    let entries = db.list_entries(
-        &state.query.borrow(),
-        *state.filter.borrow(),
-        *state.sort.borrow(),
-        200,
-    )?;
-    *state.entries.borrow_mut() = entries;
+
+    match *state.view.borrow() {
+        AppView::Clipboard => {
+            let selected_id = current_entry(state).map(|entry| entry.id);
+            let entries = db.list_entries(
+                &state.query.borrow(),
+                *state.filter.borrow(),
+                *state.sort.borrow(),
+                200,
+            )?;
+            *state.entries.borrow_mut() = entries;
+            render_clipboard_list(state, selected_id);
+        }
+        AppView::Secrets => {
+            let selected_id = current_secret(state).map(|secret| secret.id);
+            let secrets = db.list_secrets(&state.query.borrow(), 200)?;
+            *state.secrets.borrow_mut() = secrets;
+            render_secrets_list(state, selected_id);
+        }
+    }
+    Ok(())
+}
+
+fn refresh_entries_if_changed(state: &Rc<AppState>) -> Result<()> {
+    let db = Database::open(&state.db_path)?;
+
+    match *state.view.borrow() {
+        AppView::Clipboard => {
+            let entries = db.list_entries(
+                &state.query.borrow(),
+                *state.filter.borrow(),
+                *state.sort.borrow(),
+                200,
+            )?;
+            if state.entries.borrow().as_slice() == entries.as_slice() {
+                return Ok(());
+            }
+            let selected_id = current_entry(state).map(|entry| entry.id);
+            *state.entries.borrow_mut() = entries;
+            render_clipboard_list(state, selected_id);
+        }
+        AppView::Secrets => {
+            let secrets = db.list_secrets(&state.query.borrow(), 200)?;
+            if state.secrets.borrow().as_slice() == secrets.as_slice() {
+                return Ok(());
+            }
+            let selected_id = current_secret(state).map(|secret| secret.id);
+            *state.secrets.borrow_mut() = secrets;
+            render_secrets_list(state, selected_id);
+        }
+    }
+    Ok(())
+}
+
+fn render_clipboard_list(state: &Rc<AppState>, selected_id: Option<i64>) {
+    state.secrets.borrow_mut().clear();
     clear_box_like(&state.list);
 
     for entry in state.entries.borrow().iter() {
         state.list.append(&entry_row(entry));
     }
 
-    if let Some(first) = state.list.row_at_index(0) {
-        state.list.select_row(Some(&first));
-        if let Some(entry) = state.entries.borrow().first() {
+    let selected_index = selected_id
+        .and_then(|id| {
+            state
+                .entries
+                .borrow()
+                .iter()
+                .position(|entry| entry.id == id)
+        })
+        .unwrap_or(0);
+
+    if let Some(row) = state.list.row_at_index(selected_index as i32) {
+        state.list.select_row(Some(&row));
+        if let Some(entry) = state.entries.borrow().get(selected_index) {
             render_preview(state, entry);
         }
     } else {
@@ -405,11 +666,47 @@ fn refresh_entries(state: &Rc<AppState>) -> Result<()> {
     set_footer(
         state,
         &format!(
-            "{} entries | Enter paste | Ctrl+Enter copy | Ctrl+P pin | Ctrl+D delete | Esc close",
+            "{} entries | Enter paste | Ctrl+Enter copy | Ctrl+S save secret | Ctrl+P pin | Ctrl+D delete | Esc close",
             state.entries.borrow().len()
         ),
     );
-    Ok(())
+}
+
+fn render_secrets_list(state: &Rc<AppState>, selected_id: Option<i64>) {
+    state.entries.borrow_mut().clear();
+    clear_box_like(&state.list);
+
+    for secret in state.secrets.borrow().iter() {
+        state.list.append(&secret_row(secret));
+    }
+
+    let selected_index = selected_id
+        .and_then(|id| {
+            state
+                .secrets
+                .borrow()
+                .iter()
+                .position(|secret| secret.id == id)
+        })
+        .unwrap_or(0);
+
+    if let Some(row) = state.list.row_at_index(selected_index as i32) {
+        state.list.select_row(Some(&row));
+        if let Some(secret) = state.secrets.borrow().get(selected_index) {
+            render_secret_preview(state, secret);
+        }
+    } else {
+        clear_box(&state.preview);
+        clear_box(&state.details);
+        state.preview.append(&muted_label("No secrets saved yet"));
+    }
+    set_footer(
+        state,
+        &format!(
+            "{} secrets | Enter copy | Ctrl+S copy | Ctrl+E rename | Ctrl+D delete | Esc close",
+            state.secrets.borrow().len()
+        ),
+    );
 }
 
 fn entry_row(entry: &ClipboardEntry) -> gtk::ListBoxRow {
@@ -446,6 +743,123 @@ fn entry_row(entry: &ClipboardEntry) -> gtk::ListBoxRow {
 
     row.set_child(Some(&outer));
     row
+}
+
+fn secret_row(secret: &SecretEntry) -> gtk::ListBoxRow {
+    let row = gtk::ListBoxRow::new();
+    row.add_css_class("entry-row");
+
+    let outer = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    let icon = gtk::Label::new(Some("KEY"));
+    icon.add_css_class("entry-kind");
+    icon.set_width_request(36);
+    icon.set_xalign(0.5);
+    outer.append(&icon);
+
+    let text = gtk::Box::new(gtk::Orientation::Vertical, 3);
+    text.set_hexpand(true);
+
+    let title = gtk::Label::new(Some(&secret.alias));
+    title.add_css_class("entry-title");
+    title.set_xalign(0.0);
+    title.set_ellipsize(gtk::pango::EllipsizeMode::End);
+    text.append(&title);
+
+    let subtitle = gtk::Label::new(Some(&format!(
+        "{} - {}",
+        masked_secret(&secret.value),
+        relative_time(secret.updated_at)
+    )));
+    subtitle.add_css_class("entry-subtitle");
+    subtitle.set_xalign(0.0);
+    subtitle.set_ellipsize(gtk::pango::EllipsizeMode::End);
+    text.append(&subtitle);
+    outer.append(&text);
+
+    let badge = gtk::Label::new(Some("SECRET"));
+    badge.add_css_class("kind-badge");
+    outer.append(&badge);
+
+    row.set_child(Some(&outer));
+    row
+}
+
+fn render_secret_preview(state: &Rc<AppState>, secret: &SecretEntry) {
+    clear_box(&state.preview);
+    clear_box(&state.details);
+    state.ocr_button.set_opacity(0.0);
+    state.ocr_button.set_sensitive(false);
+
+    let title = section_label(&secret.alias);
+    state.preview.append(&title);
+
+    let buffer = gtk::TextBuffer::new(None);
+    buffer.set_text(&masked_secret(&secret.value));
+    let view = gtk::TextView::with_buffer(&buffer);
+    view.add_css_class("preview-text");
+    view.set_editable(false);
+    view.set_cursor_visible(false);
+    view.set_wrap_mode(gtk::WrapMode::WordChar);
+    view.set_monospace(true);
+    view.set_vexpand(true);
+
+    let scroller = gtk::ScrolledWindow::builder()
+        .min_content_height(80)
+        .hscrollbar_policy(gtk::PolicyType::Never)
+        .child(&view)
+        .build();
+    state.preview.append(&scroller);
+
+    let actions = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+
+    let copy_button = gtk::Button::with_label("Copy");
+    {
+        let state = Rc::clone(state);
+        let secret = secret.clone();
+        copy_button.connect_clicked(move |_| {
+            if let Err(err) = copy_secret(&state, &secret) {
+                set_footer(&state, &format!("Copy failed: {err:#}"));
+            } else {
+                set_footer(&state, "Copied secret");
+            }
+        });
+    }
+    actions.append(&copy_button);
+
+    let reveal_button = gtk::Button::with_label("Reveal");
+    {
+        let buffer = buffer.clone();
+        let value = secret.value.clone();
+        let masked = masked_secret(&secret.value);
+        reveal_button.connect_clicked(move |button| {
+            if button.label().as_deref() == Some("Reveal") {
+                buffer.set_text(&value);
+                button.set_label("Hide");
+            } else {
+                buffer.set_text(&masked);
+                button.set_label("Reveal");
+            }
+        });
+    }
+    actions.append(&reveal_button);
+
+    let rename_button = gtk::Button::with_label("Rename");
+    {
+        let state = Rc::clone(state);
+        let window = state
+            .list
+            .root()
+            .and_then(|root| root.downcast::<gtk::Window>().ok());
+        rename_button.connect_clicked(move |_| {
+            if let Some(window) = window.as_ref() {
+                rename_current_secret_dialog(&state, window);
+            }
+        });
+    }
+    actions.append(&rename_button);
+
+    state.preview.append(&actions);
+    render_secret_details(state, secret);
 }
 
 fn render_preview(state: &Rc<AppState>, entry: &ClipboardEntry) {
@@ -591,6 +1005,44 @@ fn render_details(state: &Rc<AppState>, entry: &ClipboardEntry) {
     state.details.append(&details);
 }
 
+fn render_secret_details(state: &Rc<AppState>, secret: &SecretEntry) {
+    let details = gtk::Box::new(gtk::Orientation::Vertical, 6);
+    details.add_css_class("details-grid");
+    details.set_hexpand(true);
+
+    let rows = [
+        ("Type", "secret".to_string()),
+        ("Updated", format_full_time(secret.updated_at)),
+        ("Created", format_full_time(secret.created_at)),
+        ("Copied", secret.use_count.to_string()),
+    ];
+
+    for (label, value) in rows {
+        let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+        row.add_css_class("details-row");
+        row.set_hexpand(true);
+
+        let key = muted_label(label);
+        key.add_css_class("details-key");
+        key.set_width_request(96);
+
+        let value = gtk::Label::new(Some(&value));
+        value.add_css_class("details-value");
+        value.set_hexpand(true);
+        value.set_xalign(1.0);
+        value.set_justify(gtk::Justification::Right);
+        value.set_wrap(true);
+        value.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+        value.set_selectable(true);
+
+        row.append(&key);
+        row.append(&value);
+        details.append(&row);
+    }
+
+    state.details.append(&details);
+}
+
 fn run_ocr_for_entry(state: &Rc<AppState>, entry_id: i64) -> Result<()> {
     set_footer(state, "Running OCR...");
 
@@ -630,8 +1082,20 @@ fn current_entry(state: &Rc<AppState>) -> Option<ClipboardEntry> {
     state.entries.borrow().get(index as usize).cloned()
 }
 
+fn current_secret(state: &Rc<AppState>) -> Option<SecretEntry> {
+    let row = state.list.selected_row()?;
+    let index = row.index();
+    if index < 0 {
+        return None;
+    }
+    state.secrets.borrow().get(index as usize).cloned()
+}
+
 fn move_selection(state: &Rc<AppState>, delta: i32) {
-    let count = state.entries.borrow().len() as i32;
+    let count = match *state.view.borrow() {
+        AppView::Clipboard => state.entries.borrow().len() as i32,
+        AppView::Secrets => state.secrets.borrow().len() as i32,
+    };
     if count == 0 {
         return;
     }
@@ -678,6 +1142,125 @@ fn paste_selected(state: &Rc<AppState>, entry: &ClipboardEntry, auto_paste: bool
     Ok(())
 }
 
+fn copy_secret(state: &Rc<AppState>, secret: &SecretEntry) -> Result<()> {
+    write_clipboard("text/plain", secret.value.as_bytes())?;
+    let db = Database::open(&state.db_path)?;
+    db.touch_secret_used(secret.id)?;
+    Ok(())
+}
+
+fn save_current_as_secret_dialog(state: &Rc<AppState>, parent: &gtk::Window) {
+    let Some(entry) = current_entry(state) else {
+        set_footer(state, "No selected entry to save");
+        return;
+    };
+    let Some(value) = secret_value_from_entry(&entry) else {
+        set_footer(state, "Only text-like entries can be saved as secrets");
+        return;
+    };
+
+    let default_alias = if entry.title.trim().is_empty() {
+        "Untitled secret".to_string()
+    } else {
+        entry.title.clone()
+    };
+
+    prompt_secret_alias(
+        state,
+        parent,
+        "Save Secret",
+        &default_alias,
+        move |state, alias| {
+            let db = Database::open(&state.db_path)?;
+            db.save_secret(Some(entry.id), &alias, &value)?;
+            *state.view.borrow_mut() = AppView::Secrets;
+            *state.query.borrow_mut() = String::new();
+            state.search_entry.set_text("");
+            state
+                .search_entry
+                .set_placeholder_text(Some("Search secrets by name..."));
+            update_mode_controls(state);
+            refresh_entries(state)?;
+            set_footer(state, "Saved secret");
+            Ok(())
+        },
+    );
+}
+
+fn rename_current_secret_dialog(state: &Rc<AppState>, parent: &gtk::Window) {
+    let Some(secret) = current_secret(state) else {
+        set_footer(state, "No selected secret to rename");
+        return;
+    };
+
+    prompt_secret_alias(
+        state,
+        parent,
+        "Rename Secret",
+        &secret.alias,
+        move |state, alias| {
+            let db = Database::open(&state.db_path)?;
+            db.rename_secret(secret.id, &alias)?;
+            refresh_entries(state)?;
+            set_footer(state, "Renamed secret");
+            Ok(())
+        },
+    );
+}
+
+#[allow(deprecated)]
+fn prompt_secret_alias<F>(
+    state: &Rc<AppState>,
+    parent: &gtk::Window,
+    title: &str,
+    default_alias: &str,
+    on_accept: F,
+) where
+    F: Fn(&Rc<AppState>, String) -> Result<()> + 'static,
+{
+    let dialog = gtk::Dialog::builder()
+        .title(title)
+        .transient_for(parent)
+        .modal(true)
+        .build();
+    dialog.add_button("Cancel", gtk::ResponseType::Cancel);
+    dialog.add_button("Save", gtk::ResponseType::Accept);
+    dialog.set_default_response(gtk::ResponseType::Accept);
+
+    let content = dialog.content_area();
+    content.set_spacing(8);
+    content.set_margin_top(12);
+    content.set_margin_bottom(12);
+    content.set_margin_start(12);
+    content.set_margin_end(12);
+
+    let label = gtk::Label::new(Some("Name"));
+    label.set_xalign(0.0);
+    content.append(&label);
+
+    let alias = gtk::Entry::new();
+    alias.set_text(default_alias);
+    alias.set_activates_default(true);
+    content.append(&alias);
+
+    {
+        let state = Rc::clone(state);
+        let alias_entry = alias.clone();
+        dialog.connect_response(move |dialog, response| {
+            if response == gtk::ResponseType::Accept {
+                let alias = alias_entry.text().to_string();
+                if let Err(err) = on_accept(&state, alias) {
+                    set_footer(&state, &format!("Secret failed: {err:#}"));
+                }
+            }
+            dialog.close();
+        });
+    }
+
+    dialog.present();
+    alias.grab_focus();
+}
+
 fn toggle_pin(state: &Rc<AppState>) -> Result<()> {
     let entry = current_entry(state).context("no selected entry")?;
     let db = Database::open(&state.db_path)?;
@@ -686,10 +1269,61 @@ fn toggle_pin(state: &Rc<AppState>) -> Result<()> {
 }
 
 fn delete_current(state: &Rc<AppState>) -> Result<()> {
-    let entry = current_entry(state).context("no selected entry")?;
     let db = Database::open(&state.db_path)?;
-    db.delete_entry(entry.id)?;
+    match *state.view.borrow() {
+        AppView::Clipboard => {
+            let entry = current_entry(state).context("no selected entry")?;
+            db.delete_entry(entry.id)?;
+        }
+        AppView::Secrets => {
+            let secret = current_secret(state).context("no selected secret")?;
+            db.delete_secret(secret.id)?;
+        }
+    }
     refresh_entries(state)
+}
+
+fn update_mode_controls(state: &Rc<AppState>) {
+    let view = *state.view.borrow();
+    state
+        .filter_select
+        .set_sensitive(matches!(view, AppView::Clipboard));
+
+    state.history_button.remove_css_class("active-mode");
+    state.secrets_button.remove_css_class("active-mode");
+    match view {
+        AppView::Clipboard => state.history_button.add_css_class("active-mode"),
+        AppView::Secrets => state.secrets_button.add_css_class("active-mode"),
+    }
+}
+
+fn secret_value_from_entry(entry: &ClipboardEntry) -> Option<String> {
+    match entry.kind {
+        EntryKind::Image | EntryKind::Color | EntryKind::File => None,
+        EntryKind::Link => entry
+            .link_url
+            .as_deref()
+            .or(entry.text_content.as_deref())
+            .or(entry.preview_text.as_deref())
+            .filter(|value| !value.trim().is_empty())
+            .map(ToOwned::to_owned),
+        _ => entry
+            .text_content
+            .as_deref()
+            .or(entry.preview_text.as_deref())
+            .filter(|value| !value.trim().is_empty())
+            .map(ToOwned::to_owned),
+    }
+}
+
+fn masked_secret(value: &str) -> String {
+    let visible_tail = value.chars().rev().take(4).collect::<Vec<_>>();
+    let tail = visible_tail.into_iter().rev().collect::<String>();
+    if tail.is_empty() {
+        "********".to_string()
+    } else {
+        format!("********{tail}")
+    }
 }
 
 fn clear_box(container: &gtk::Box) {

@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 use clipvault_core::models::{EntryFilter, SortMode};
+use clipvault_core::notify::notify_changed;
 use clipvault_core::paste::paste_entry;
 use clipvault_core::storage::{content_hash, store_image};
 use clipvault_core::{ClipvaultPaths, Database, classify_payload};
@@ -57,6 +58,7 @@ fn cmd_store(args: &[String]) -> Result<()> {
     }
 
     let id = db.upsert_entry(&entry)?;
+    notify_changed(&paths);
     println!("{id}");
     Ok(())
 }
@@ -111,6 +113,7 @@ fn cmd_pin(args: &[String]) -> Result<()> {
     let paths = ClipvaultPaths::discover()?;
     let db = Database::open(&paths.db_path)?;
     db.set_pinned(id, pinned)?;
+    notify_changed(&paths);
     Ok(())
 }
 
@@ -119,6 +122,7 @@ fn cmd_delete(args: &[String]) -> Result<()> {
     let paths = ClipvaultPaths::discover()?;
     let db = Database::open(&paths.db_path)?;
     db.delete_entry(id)?;
+    notify_changed(&paths);
     Ok(())
 }
 
@@ -135,6 +139,7 @@ fn cmd_paste(args: &[String]) -> Result<()> {
         .with_context(|| format!("entry {id} not found"))?;
     paste_entry(&entry, auto_paste, delay_ms)?;
     db.touch_used(id)?;
+    notify_changed(&paths);
     Ok(())
 }
 
@@ -152,6 +157,7 @@ fn cmd_ocr(args: &[String]) -> Result<()> {
         .context("entry does not have an image file path")?;
     let text = clipvault_core::ocr::run_tesseract(image_path, language)?;
     db.save_ocr_result(id, language, &text)?;
+    notify_changed(&paths);
     println!("{text}");
     Ok(())
 }

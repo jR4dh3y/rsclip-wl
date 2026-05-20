@@ -47,7 +47,7 @@ impl FromStr for EntryKind {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ClipboardEntry {
     pub id: i64,
     pub content_hash: String,
@@ -91,6 +91,18 @@ pub struct NewEntry {
     pub color_value: Option<String>,
     pub color_format: Option<String>,
     pub size_bytes: i64,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct SecretEntry {
+    pub id: i64,
+    pub source_entry_id: Option<i64>,
+    pub alias: String,
+    pub value: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub last_used_at: Option<i64>,
+    pub use_count: i64,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use chrono::Utc;
 use rusqlite::{Connection, OptionalExtension, Row, params};
 
-use crate::models::{ClipboardEntry, EntryFilter, EntryKind, NewEntry, SortMode};
+use crate::models::{ClipboardEntry, EntryFilter, EntryKind, NewEntry, SecretEntry, SortMode};
 
 pub struct Database {
     conn: Connection,
@@ -81,6 +81,22 @@ impl Database {
               FOREIGN KEY(entry_id) REFERENCES entries(id),
               FOREIGN KEY(tag_id) REFERENCES tags(id)
             );
+
+            CREATE TABLE IF NOT EXISTS secrets (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              source_entry_id INTEGER UNIQUE,
+              alias TEXT NOT NULL,
+              value TEXT NOT NULL,
+              created_at INTEGER NOT NULL,
+              updated_at INTEGER NOT NULL,
+              last_used_at INTEGER,
+              use_count INTEGER NOT NULL DEFAULT 0,
+              deleted INTEGER NOT NULL DEFAULT 0,
+              FOREIGN KEY(source_entry_id) REFERENCES entries(id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_secrets_updated_at ON secrets(updated_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_secrets_alias ON secrets(alias);
             "#,
         )?;
         Ok(())
@@ -270,6 +286,113 @@ impl Database {
         )?;
         Ok(())
     }
+
+    pub fn list_secrets(&self, query: &str, limit: usize) -> Result<Vec<SecretEntry>> {
+        let has_query = !query.trim().is_empty();
+        let mut sql = String::from(
+            r#"
+            SELECT
+              id, source_entry_id, alias, value, created_at, updated_at,
+              last_used_at, use_count
+            FROM secrets
+            WHERE deleted = 0
+            "#,
+        );
+        if has_query {
+            sql.push_str(" AND alias LIKE ?1");
+        }
+        sql.push_str(" ORDER BY updated_at DESC LIMIT ");
+        sql.push_str(&limit.min(1000).to_string());
+
+        let mut stmt = self.conn.prepare(&sql)?;
+        let rows = if has_query {
+            let pattern = format!("%{}%", query.trim());
+            stmt.query_map(params![pattern], secret_from_row)?
+                .collect::<rusqlite::Result<Vec<_>>>()?
+        } else {
+            stmt.query_map([], secret_from_row)?
+                .collect::<rusqlite::Result<Vec<_>>>()?
+        };
+        Ok(rows)
+    }
+
+    pub fn save_secret(
+        &self,
+        source_entry_id: Option<i64>,
+        alias: &str,
+        value: &str,
+    ) -> Result<i64> {
+        let now = Utc::now().timestamp();
+        let normalized_alias = alias.trim();
+        let alias = if normalized_alias.is_empty() {
+            "Untitled secret"
+        } else {
+            normalized_alias
+        };
+
+        if let Some(source_entry_id) = source_entry_id {
+            self.conn.execute(
+                r#"
+                INSERT INTO secrets (
+                  source_entry_id, alias, value, created_at, updated_at, deleted
+                )
+                VALUES (?1, ?2, ?3, ?4, ?5, 0)
+                ON CONFLICT(source_entry_id) DO UPDATE SET
+                  alias=excluded.alias,
+                  value=excluded.value,
+                  updated_at=excluded.updated_at,
+                  deleted=0
+                "#,
+                params![source_entry_id, alias, value, now, now],
+            )?;
+            let id = self.conn.query_row(
+                "SELECT id FROM secrets WHERE source_entry_id = ?1",
+                params![source_entry_id],
+                |row| row.get(0),
+            )?;
+            return Ok(id);
+        }
+
+        self.conn.execute(
+            r#"
+            INSERT INTO secrets (source_entry_id, alias, value, created_at, updated_at, deleted)
+            VALUES (NULL, ?1, ?2, ?3, ?4, 0)
+            "#,
+            params![alias, value, now, now],
+        )?;
+        Ok(self.conn.last_insert_rowid())
+    }
+
+    pub fn rename_secret(&self, id: i64, alias: &str) -> Result<()> {
+        let normalized_alias = alias.trim();
+        let alias = if normalized_alias.is_empty() {
+            "Untitled secret"
+        } else {
+            normalized_alias
+        };
+        self.conn.execute(
+            "UPDATE secrets SET alias = ?2, updated_at = ?3 WHERE id = ?1",
+            params![id, alias, Utc::now().timestamp()],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_secret(&self, id: i64) -> Result<()> {
+        self.conn.execute(
+            "UPDATE secrets SET deleted = 1, updated_at = ?2 WHERE id = ?1",
+            params![id, Utc::now().timestamp()],
+        )?;
+        Ok(())
+    }
+
+    pub fn touch_secret_used(&self, id: i64) -> Result<()> {
+        let now = Utc::now().timestamp();
+        self.conn.execute(
+            "UPDATE secrets SET last_used_at = ?2, use_count = use_count + 1 WHERE id = ?1",
+            params![id, now],
+        )?;
+        Ok(())
+    }
 }
 
 fn entry_from_row(row: &Row<'_>) -> rusqlite::Result<ClipboardEntry> {
@@ -298,5 +421,18 @@ fn entry_from_row(row: &Row<'_>) -> rusqlite::Result<ClipboardEntry> {
         use_count: row.get(20)?,
         size_bytes: row.get(21)?,
         ocr_text: row.get(22)?,
+    })
+}
+
+fn secret_from_row(row: &Row<'_>) -> rusqlite::Result<SecretEntry> {
+    Ok(SecretEntry {
+        id: row.get(0)?,
+        source_entry_id: row.get(1)?,
+        alias: row.get(2)?,
+        value: row.get(3)?,
+        created_at: row.get(4)?,
+        updated_at: row.get(5)?,
+        last_used_at: row.get(6)?,
+        use_count: row.get(7)?,
     })
 }

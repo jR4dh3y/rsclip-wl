@@ -5,6 +5,7 @@ pub mod db;
 pub mod links;
 pub mod mime;
 pub mod models;
+pub mod notify;
 pub mod ocr;
 pub mod paste;
 pub mod storage;
