@@ -8,26 +8,59 @@ pub(super) fn entry_from_row(row: &Row<'_>) -> rusqlite::Result<ClipboardEntry> 
     let kind: String = row.get("kind")?;
     let kind = EntryKind::from_str(&kind).unwrap_or(EntryKind::Unknown);
 
-    let data = match kind {
-        EntryKind::Text => EntryData::Text,
-        EntryKind::Image => EntryData::Image {
-            file_path: row.get("file_path")?,
-            thumb_path: row.get("thumb_path")?,
-            ocr_text: row.get("ocr_text")?,
-        },
-        EntryKind::Link => EntryData::Link {
-            url: row.get("link_url")?,
-            domain: row.get("link_domain")?,
-            icon: row.get("link_icon")?,
-        },
-        EntryKind::Color => EntryData::Color {
-            value: row.get("color_value")?,
-            format: row.get("color_format")?,
-        },
-        EntryKind::File => EntryData::File {
-            source_app: row.get("source_app")?,
-        },
-        EntryKind::Unknown => EntryData::Unknown,
+    let (kind, data) = match kind {
+        EntryKind::Text => (EntryKind::Text, EntryData::Text),
+        EntryKind::Image => {
+            let file_path: Option<String> = row.get("file_path")?;
+
+            match file_path {
+                Some(file_path) => (
+                    EntryKind::Image,
+                    EntryData::Image {
+                        file_path,
+                        thumb_path: row.get("thumb_path")?,
+                        ocr_text: row.get("ocr_text")?,
+                    },
+                ),
+                None => (EntryKind::Unknown, EntryData::Unknown),
+            }
+        }
+        EntryKind::Link => {
+            let url: Option<String> = row.get("link_url")?;
+            let domain: Option<String> = row.get("link_domain")?;
+            let icon: Option<String> = row.get("link_icon")?;
+
+            match (url, domain) {
+                (Some(url), Some(domain)) => (
+                    EntryKind::Link,
+                    EntryData::Link {
+                        url,
+                        domain,
+                        icon: icon.unwrap_or_else(|| "globe".to_string()),
+                    },
+                ),
+                _ => (EntryKind::Unknown, EntryData::Unknown),
+            }
+        }
+        EntryKind::Color => {
+            let value: Option<String> = row.get("color_value")?;
+            let format: Option<String> = row.get("color_format")?;
+
+            match (value, format) {
+                (Some(value), Some(format)) => (
+                    EntryKind::Color,
+                    EntryData::Color { value, format },
+                ),
+                _ => (EntryKind::Unknown, EntryData::Unknown),
+            }
+        }
+        EntryKind::File => (
+            EntryKind::File,
+            EntryData::File {
+                source_app: row.get("source_app")?,
+            },
+        ),
+        EntryKind::Unknown => (EntryKind::Unknown, EntryData::Unknown),
     };
 
     Ok(ClipboardEntry {
