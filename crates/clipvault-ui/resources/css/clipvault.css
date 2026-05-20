@@ -9,14 +9,19 @@ window {
   color: #dcd9e7;
 }
 
-.topbar,
-.footer {
-  padding: 12px;
+.topbar {
+  padding: 7px 10px;
 }
 
 .footer {
   border-top: 1px solid rgba(220, 217, 231, 0.08);
-  line-height: 1.35;
+  line-height: 1.1;
+  min-height: 26px;
+  padding: 2px 10px;
+}
+
+.footer-label {
+  padding: 0;
 }
 
 .search-box {
@@ -24,7 +29,12 @@ window {
   border: 1px solid rgba(220, 217, 231, 0.12);
   border-radius: 0;
   color: #dcd9e7;
-  min-height: 38px;
+  min-height: 30px;
+  padding: 0 8px;
+}
+
+.filter-select {
+  min-height: 30px;
 }
 
 .sidebar {
@@ -88,6 +98,16 @@ window {
   color: #dcd9e7;
 }
 
+.ocr-button {
+  background: rgba(195, 251, 91, 0.10);
+  border: 1px solid rgba(195, 251, 91, 0.35);
+  color: #c3fb5b;
+  font-weight: 600;
+  min-height: 20px;
+  min-width: 38px;
+  padding: 0 6px;
+}
+
 .kind-badge {
   background: rgba(195, 251, 91, 0.14);
   border-radius: 0;
@@ -118,8 +138,14 @@ button {
   border: 1px solid rgba(220, 217, 231, 0.12);
   border-radius: 0;
   color: #dcd9e7;
+  min-height: 22px;
+  padding: 1px 8px;
 }
 
 button:hover {
   background: rgba(74, 59, 95, 0.92);
+}
+
+.ocr-button:hover {
+  background: rgba(195, 251, 91, 0.18);
 }

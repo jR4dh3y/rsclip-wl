@@ -5,6 +5,7 @@ use std::rc::Rc;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Local, Utc};
 use clipvault_core::models::{ClipboardEntry, EntryFilter, EntryKind, SortMode};
+use clipvault_core::ocr::run_tesseract;
 use clipvault_core::paste::paste_entry;
 use clipvault_core::{ClipvaultPaths, Database};
 use gtk::gdk;
@@ -50,6 +51,7 @@ struct AppState {
     preview: gtk::Box,
     details: gtk::Box,
     footer: gtk::Label,
+    ocr_button: gtk::Button,
 }
 
 fn build_ui(app: &gtk::Application) -> Result<()> {
@@ -84,6 +86,7 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
 
     let filter =
         gtk::DropDown::from_strings(&["All", "Text", "Images", "Links", "Colors", "Pinned"]);
+    filter.add_css_class("filter-select");
     filter.set_selected(0);
     topbar.append(&filter);
 
@@ -125,15 +128,28 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
     paned.set_end_child(Some(&preview_shell));
     paned.set_position(360);
 
+    let footer_bar = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    footer_bar.set_valign(gtk::Align::Center);
+    footer_bar.add_css_class("footer");
+
     let footer = gtk::Label::new(Some(
         "Enter paste  Ctrl+Enter copy  Ctrl+P pin  Ctrl+D delete  Esc close",
     ));
-    footer.add_css_class("footer");
+    footer.add_css_class("footer-label");
     footer.add_css_class("muted");
     footer.set_xalign(0.0);
     footer.set_wrap(true);
     footer.set_wrap_mode(gtk::pango::WrapMode::WordChar);
-    shell.append(&footer);
+    footer.set_hexpand(true);
+    footer_bar.append(&footer);
+
+    let ocr_button = gtk::Button::with_label("OCR");
+    ocr_button.add_css_class("ocr-button");
+    ocr_button.set_opacity(0.0);
+    ocr_button.set_sensitive(false);
+    footer_bar.append(&ocr_button);
+
+    shell.append(&footer_bar);
 
     let state = Rc::new(AppState {
         db_path: paths.db_path,
@@ -145,9 +161,23 @@ fn build_ui(app: &gtk::Application) -> Result<()> {
         preview: preview.clone(),
         details: details.clone(),
         footer,
+        ocr_button: ocr_button.clone(),
     });
 
     refresh_entries(&state)?;
+
+    {
+        let state = Rc::clone(&state);
+        ocr_button.connect_clicked(move |_| {
+            if let Some(entry) = current_entry(&state) {
+                if matches!(entry.kind, EntryKind::Image) {
+                    if let Err(err) = run_ocr_for_entry(&state, entry.id) {
+                        set_footer(&state, &format!("OCR failed: {err:#}"));
+                    }
+                }
+            }
+        });
+    }
 
     {
         let state = Rc::clone(&state);
@@ -416,6 +446,16 @@ fn entry_row(entry: &ClipboardEntry) -> gtk::ListBoxRow {
 fn render_preview(state: &Rc<AppState>, entry: &ClipboardEntry) {
     clear_box(&state.preview);
     clear_box(&state.details);
+    state
+        .ocr_button
+        .set_opacity(if matches!(entry.kind, EntryKind::Image) {
+            1.0
+        } else {
+            0.0
+        });
+    state
+        .ocr_button
+        .set_sensitive(matches!(entry.kind, EntryKind::Image));
 
     match entry.kind {
         EntryKind::Image => render_image_preview(&state.preview, entry),
@@ -440,7 +480,7 @@ fn render_preview(state: &Rc<AppState>, entry: &ClipboardEntry) {
         render_text_preview(&state.preview, Some(ocr));
     }
 
-    render_details(&state.details, entry);
+    render_details(state, entry);
 }
 
 fn render_image_preview(container: &gtk::Box, entry: &ClipboardEntry) {
@@ -494,7 +534,7 @@ fn render_text_preview(container: &gtk::Box, text: Option<&str>) {
     container.append(&scroller);
 }
 
-fn render_details(container: &gtk::Box, entry: &ClipboardEntry) {
+fn render_details(state: &Rc<AppState>, entry: &ClipboardEntry) {
     let details = gtk::Box::new(gtk::Orientation::Vertical, 6);
     details.add_css_class("details-grid");
     details.set_hexpand(true);
@@ -529,7 +569,37 @@ fn render_details(container: &gtk::Box, entry: &ClipboardEntry) {
         details.append(&row);
     }
 
-    container.append(&details);
+    state.details.append(&details);
+}
+
+fn run_ocr_for_entry(state: &Rc<AppState>, entry_id: i64) -> Result<()> {
+    set_footer(state, "Running OCR...");
+
+    let db = Database::open(&state.db_path)?;
+    let entry = db
+        .get_entry(entry_id)?
+        .with_context(|| format!("entry {entry_id} not found"))?;
+    let image_path = entry
+        .file_path
+        .as_deref()
+        .context("entry does not have an image file path")?;
+    let text = run_tesseract(image_path, "eng")?;
+    db.save_ocr_result(entry_id, "eng", &text)?;
+
+    let updated = db
+        .get_entry(entry_id)?
+        .with_context(|| format!("entry {entry_id} not found after OCR"))?;
+    if let Some(slot) = state
+        .entries
+        .borrow_mut()
+        .iter_mut()
+        .find(|entry| entry.id == entry_id)
+    {
+        *slot = updated.clone();
+    }
+    render_preview(state, &updated);
+    set_footer(state, "OCR complete");
+    Ok(())
 }
 
 fn current_entry(state: &Rc<AppState>) -> Option<ClipboardEntry> {
