@@ -5,7 +5,7 @@ use gtk::prelude::*;
 use gtk4 as gtk;
 use rsclip_core::colors::parse_color;
 use rsclip_core::format::masked_secret;
-use rsclip_core::models::{ClipboardEntry, EntryKind, SecretEntry};
+use rsclip_core::models::{ClipboardEntry, EntryData, SecretEntry};
 
 use crate::components::details::{render_details, render_secret_details};
 use crate::components::labels::{muted_label, section_label};
@@ -140,31 +140,35 @@ pub(crate) fn render_secret_preview(state: &Rc<AppState>, secret: &SecretEntry) 
 pub(crate) fn render_preview(state: &Rc<AppState>, entry: &ClipboardEntry) {
     crate::components::clear_box(&state.preview);
     crate::components::clear_box(&state.details);
-    let is_image = matches!(entry.kind, EntryKind::Image);
+    let is_image = matches!(&entry.data, EntryData::Image { .. });
     state
         .ocr_button
         .set_opacity(if is_image { 1.0 } else { 0.0 });
     state.ocr_button.set_sensitive(is_image);
 
-    match entry.kind {
-        EntryKind::Image => render_image_preview(&state.preview, entry),
-        EntryKind::Color => render_color_preview(&state.preview, entry),
-        EntryKind::Link => {
+    match &entry.data {
+        EntryData::Image { .. } => render_image_preview(&state.preview, entry),
+        EntryData::Color { value, .. } => render_color_preview(&state.preview, value),
+        EntryData::Link { url, .. } => {
+            render_text_preview(&state.preview, Some(url));
+        }
+        EntryData::Text | EntryData::File { .. } | EntryData::Unknown => {
             render_text_preview(
                 &state.preview,
-                entry.link_url.as_deref().or(entry.text_content.as_deref()),
+                entry
+                    .text_content
+                    .as_deref()
+                    .or(entry.preview_text.as_deref()),
             );
         }
-        _ => render_text_preview(
-            &state.preview,
-            entry
-                .text_content
-                .as_deref()
-                .or(entry.preview_text.as_deref()),
-        ),
     }
 
-    if let Some(ocr) = entry.ocr_text.as_deref().filter(|text| !text.is_empty()) {
+    if let EntryData::Image {
+        ocr_text: Some(ocr),
+        ..
+    } = &entry.data
+        && !ocr.is_empty()
+    {
         state.preview.append(&section_label("OCR"));
         render_text_preview(&state.preview, Some(ocr));
     }
@@ -180,8 +184,8 @@ pub(crate) fn clear_preview_state(state: &Rc<AppState>) {
 }
 
 fn render_image_preview(container: &gtk::Box, entry: &ClipboardEntry) {
-    if let Some(path) = entry.file_path.as_deref() {
-        let file = gio::File::for_path(path);
+    if let EntryData::Image { file_path, .. } = &entry.data {
+        let file = gio::File::for_path(file_path);
         if let Ok(texture) = gdk::Texture::from_file(&file) {
             let ratio = (texture.width() as f32 / texture.height().max(1) as f32).clamp(0.2, 8.0);
             let frame = gtk::AspectFrame::new(0.5, 0.5, ratio, false);
@@ -203,34 +207,32 @@ fn render_image_preview(container: &gtk::Box, entry: &ClipboardEntry) {
     }
 }
 
-fn render_color_preview(container: &gtk::Box, entry: &ClipboardEntry) {
-    if let Some(hex) = entry.color_value.as_deref() {
-        let frame = gtk::AspectFrame::new(0.5, 0.5, 16.0 / 9.0, false);
-        frame.set_hexpand(true);
-        frame.set_vexpand(true);
+fn render_color_preview(container: &gtk::Box, hex: &str) {
+    let frame = gtk::AspectFrame::new(0.5, 0.5, 16.0 / 9.0, false);
+    frame.set_hexpand(true);
+    frame.set_vexpand(true);
 
-        let swatch = gtk::DrawingArea::new();
-        swatch.add_css_class("color-swatch");
-        swatch.set_hexpand(true);
-        swatch.set_vexpand(true);
-        let color = parse_color(hex)
-            .map(|color| {
-                (
-                    f64::from(color.rgb.0) / 255.0,
-                    f64::from(color.rgb.1) / 255.0,
-                    f64::from(color.rgb.2) / 255.0,
-                )
-            })
-            .unwrap_or((0.2, 0.2, 0.2));
-        swatch.set_draw_func(move |_, cr, width, height| {
-            cr.set_source_rgb(color.0, color.1, color.2);
-            cr.rectangle(0.0, 0.0, f64::from(width), f64::from(height));
-            let _ = cr.fill();
-        });
-        frame.set_child(Some(&swatch));
-        container.append(&frame);
-        render_text_preview(container, Some(hex));
-    }
+    let swatch = gtk::DrawingArea::new();
+    swatch.add_css_class("color-swatch");
+    swatch.set_hexpand(true);
+    swatch.set_vexpand(true);
+    let color = parse_color(hex)
+        .map(|color| {
+            (
+                f64::from(color.rgb.0) / 255.0,
+                f64::from(color.rgb.1) / 255.0,
+                f64::from(color.rgb.2) / 255.0,
+            )
+        })
+        .unwrap_or((0.2, 0.2, 0.2));
+    swatch.set_draw_func(move |_, cr, width, height| {
+        cr.set_source_rgb(color.0, color.1, color.2);
+        cr.rectangle(0.0, 0.0, f64::from(width), f64::from(height));
+        let _ = cr.fill();
+    });
+    frame.set_child(Some(&swatch));
+    container.append(&frame);
+    render_text_preview(container, Some(hex));
 }
 
 fn render_text_preview(container: &gtk::Box, text: Option<&str>) {

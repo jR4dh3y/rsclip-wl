@@ -47,6 +47,80 @@ impl FromStr for EntryKind {
     }
 }
 
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub enum EntryData {
+    #[default]
+    Text,
+    Image {
+        file_path: String,
+        thumb_path: Option<String>,
+        ocr_text: Option<String>,
+    },
+    Link {
+        url: String,
+        domain: String,
+        icon: String,
+    },
+    Color {
+        value: String,
+        format: String,
+    },
+    File {
+        source_app: Option<String>,
+    },
+    Unknown,
+}
+
+impl EntryData {
+    pub fn kind(&self) -> EntryKind {
+        match self {
+            Self::Text => EntryKind::Text,
+            Self::Image { .. } => EntryKind::Image,
+            Self::Link { .. } => EntryKind::Link,
+            Self::Color { .. } => EntryKind::Color,
+            Self::File { .. } => EntryKind::File,
+            Self::Unknown => EntryKind::Unknown,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub enum NewEntryData {
+    #[default]
+    Text,
+    Image {
+        file_path: Option<String>,
+        thumb_path: Option<String>,
+        ocr_text: Option<String>,
+    },
+    Link {
+        url: String,
+        domain: String,
+        icon: String,
+    },
+    Color {
+        value: String,
+        format: String,
+    },
+    File {
+        source_app: Option<String>,
+    },
+    Unknown,
+}
+
+impl NewEntryData {
+    pub fn kind(&self) -> EntryKind {
+        match self {
+            Self::Text => EntryKind::Text,
+            Self::Image { .. } => EntryKind::Image,
+            Self::Link { .. } => EntryKind::Link,
+            Self::Color { .. } => EntryKind::Color,
+            Self::File { .. } => EntryKind::File,
+            Self::Unknown => EntryKind::Unknown,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ClipboardEntry {
     pub id: i64,
@@ -56,14 +130,6 @@ pub struct ClipboardEntry {
     pub title: String,
     pub preview_text: Option<String>,
     pub text_content: Option<String>,
-    pub file_path: Option<String>,
-    pub thumb_path: Option<String>,
-    pub source_app: Option<String>,
-    pub link_url: Option<String>,
-    pub link_domain: Option<String>,
-    pub link_icon: Option<String>,
-    pub color_value: Option<String>,
-    pub color_format: Option<String>,
     pub pinned: bool,
     pub favorite: bool,
     pub copied_at: i64,
@@ -71,26 +137,129 @@ pub struct ClipboardEntry {
     pub last_used_at: Option<i64>,
     pub use_count: i64,
     pub size_bytes: i64,
-    pub ocr_text: Option<String>,
+    pub data: EntryData,
+}
+
+impl ClipboardEntry {
+    #[cfg(test)]
+    pub fn test_text(id: i64, title: &str) -> Self {
+        Self {
+            id,
+            content_hash: "hash".to_string(),
+            kind: EntryKind::Text,
+            mime_type: "text/plain".to_string(),
+            title: title.to_string(),
+            preview_text: None,
+            text_content: None,
+            pinned: false,
+            favorite: false,
+            copied_at: 0,
+            updated_at: 0,
+            last_used_at: None,
+            use_count: 0,
+            size_bytes: 0,
+            data: EntryData::Text,
+        }
+    }
+
+    #[cfg(test)]
+    pub fn test_image(id: i64, file_path: &str) -> Self {
+        Self {
+            id,
+            content_hash: "hash".to_string(),
+            kind: EntryKind::Image,
+            mime_type: "image/png".to_string(),
+            title: "Image".to_string(),
+            preview_text: None,
+            text_content: None,
+            pinned: false,
+            favorite: false,
+            copied_at: 0,
+            updated_at: 0,
+            last_used_at: None,
+            use_count: 0,
+            size_bytes: 0,
+            data: EntryData::Image {
+                file_path: file_path.to_string(),
+                thumb_path: None,
+                ocr_text: None,
+            },
+        }
+    }
+
+    #[cfg(test)]
+    pub fn test_link(id: i64, url: &str, domain: &str) -> Self {
+        Self {
+            id,
+            content_hash: "hash".to_string(),
+            kind: EntryKind::Link,
+            mime_type: "text/plain".to_string(),
+            title: domain.to_string(),
+            preview_text: None,
+            text_content: None,
+            pinned: false,
+            favorite: false,
+            copied_at: 0,
+            updated_at: 0,
+            last_used_at: None,
+            use_count: 0,
+            size_bytes: 0,
+            data: EntryData::Link {
+                url: url.to_string(),
+                domain: domain.to_string(),
+                icon: "globe".to_string(),
+            },
+        }
+    }
+
+    #[cfg(test)]
+    pub fn test_color(id: i64, value: &str, format: &str) -> Self {
+        Self {
+            id,
+            content_hash: "hash".to_string(),
+            kind: EntryKind::Color,
+            mime_type: "text/plain".to_string(),
+            title: value.to_string(),
+            preview_text: None,
+            text_content: None,
+            pinned: false,
+            favorite: false,
+            copied_at: 0,
+            updated_at: 0,
+            last_used_at: None,
+            use_count: 0,
+            size_bytes: 0,
+            data: EntryData::Color {
+                value: value.to_string(),
+                format: format.to_string(),
+            },
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
 pub struct NewEntry {
     pub content_hash: String,
-    pub kind: EntryKind,
     pub mime_type: String,
     pub title: String,
     pub preview_text: Option<String>,
     pub text_content: Option<String>,
-    pub file_path: Option<String>,
-    pub thumb_path: Option<String>,
-    pub source_app: Option<String>,
-    pub link_url: Option<String>,
-    pub link_domain: Option<String>,
-    pub link_icon: Option<String>,
-    pub color_value: Option<String>,
-    pub color_format: Option<String>,
     pub size_bytes: i64,
+    pub data: NewEntryData,
+}
+
+impl NewEntry {
+    pub fn new(content_hash: String, mime_type: String, title: String) -> Self {
+        Self {
+            content_hash,
+            mime_type,
+            title,
+            preview_text: None,
+            text_content: None,
+            size_bytes: 0,
+            data: NewEntryData::default(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]

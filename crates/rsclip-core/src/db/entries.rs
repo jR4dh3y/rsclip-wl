@@ -2,13 +2,77 @@ use anyhow::Result;
 use chrono::Utc;
 use rusqlite::{OptionalExtension, params};
 
-use crate::models::{ClipboardEntry, EntryFilter, NewEntry, SortMode};
+use crate::models::{ClipboardEntry, EntryFilter, NewEntry, NewEntryData, SortMode};
 
 use super::{Database, rows::entry_from_row};
 
 impl Database {
     pub fn upsert_entry(&self, entry: &NewEntry) -> Result<i64> {
         let now = Utc::now().timestamp();
+        let kind = entry.data.kind();
+
+        let (
+            file_path,
+            thumb_path,
+            source_app,
+            link_url,
+            link_domain,
+            link_icon,
+            color_value,
+            color_format,
+        ) = match &entry.data {
+            NewEntryData::Text => (None, None, None, None, None, None, None, None),
+            NewEntryData::Image {
+                file_path,
+                thumb_path,
+                ocr_text: _,
+            } => (
+                file_path.clone(),
+                thumb_path.clone(),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ),
+            NewEntryData::Link {
+                url,
+                domain,
+                icon,
+            } => (
+                None,
+                None,
+                None,
+                Some(url.clone()),
+                Some(domain.clone()),
+                Some(icon.clone()),
+                None,
+                None,
+            ),
+            NewEntryData::Color { value, format } => (
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(value.clone()),
+                Some(format.clone()),
+            ),
+            NewEntryData::File { source_app } => (
+                None,
+                None,
+                source_app.clone(),
+                None,
+                None,
+                None,
+                None,
+                None,
+            ),
+            NewEntryData::Unknown => (None, None, None, None, None, None, None, None),
+        };
+
         self.conn.execute(
             r#"
             INSERT INTO entries (
@@ -37,19 +101,19 @@ impl Database {
             "#,
             params![
                 entry.content_hash,
-                entry.kind.as_str(),
+                kind.as_str(),
                 entry.mime_type,
                 entry.title,
                 entry.preview_text,
                 entry.text_content,
-                entry.file_path,
-                entry.thumb_path,
-                entry.source_app,
-                entry.link_url,
-                entry.link_domain,
-                entry.link_icon,
-                entry.color_value,
-                entry.color_format,
+                file_path,
+                thumb_path,
+                source_app,
+                link_url,
+                link_domain,
+                link_icon,
+                color_value,
+                color_format,
                 now,
                 now,
                 entry.size_bytes,
@@ -58,7 +122,7 @@ impl Database {
         let id = self.conn.query_row(
             "SELECT id FROM entries WHERE content_hash = ?1",
             params![entry.content_hash],
-            |row| row.get(0),
+            |row| row.get::<_, i64>("id"),
         )?;
         Ok(id)
     }
@@ -77,7 +141,7 @@ impl Database {
               e.text_content, e.file_path, e.thumb_path, e.source_app, e.link_url,
               e.link_domain, e.link_icon, e.color_value, e.color_format, e.pinned,
               e.favorite, e.copied_at, e.updated_at, e.last_used_at, e.use_count,
-              e.size_bytes, o.text
+              e.size_bytes, o.text AS ocr_text
             FROM entries e
             LEFT JOIN ocr_results o ON o.entry_id = e.id
             WHERE e.deleted = 0
@@ -137,7 +201,7 @@ impl Database {
                   e.text_content, e.file_path, e.thumb_path, e.source_app, e.link_url,
                   e.link_domain, e.link_icon, e.color_value, e.color_format, e.pinned,
                   e.favorite, e.copied_at, e.updated_at, e.last_used_at, e.use_count,
-                  e.size_bytes, o.text
+                  e.size_bytes, o.text AS ocr_text
                 FROM entries e
                 LEFT JOIN ocr_results o ON o.entry_id = e.id
                 WHERE e.id = ?1 AND e.deleted = 0

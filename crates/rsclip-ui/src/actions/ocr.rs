@@ -3,6 +3,7 @@ use std::rc::Rc;
 use anyhow::{Context, Result};
 use rsclip_core::Database;
 use rsclip_core::ocr::run_tesseract;
+use rsclip_core::EntryData;
 
 use crate::actions::set_footer;
 use crate::components::preview::render_preview;
@@ -15,10 +16,10 @@ pub(crate) fn run_ocr_for_entry(state: &Rc<AppState>, entry_id: i64) -> Result<(
     let entry = db
         .get_entry(entry_id)?
         .with_context(|| format!("entry {entry_id} not found"))?;
-    let image_path = entry
-        .file_path
-        .as_deref()
-        .context("entry does not have an image file path")?;
+    let image_path = match &entry.data {
+        EntryData::Image { file_path, .. } => file_path.as_str(),
+        _ => anyhow::bail!("entry is not an image"),
+    };
     let text = run_tesseract(image_path, "eng")?;
     db.save_ocr_result(entry_id, "eng", &text)?;
 

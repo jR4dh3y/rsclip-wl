@@ -31,7 +31,7 @@ mod tests {
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use crate::models::{EntryFilter, EntryKind, NewEntry, SortMode};
+    use crate::models::{EntryFilter, NewEntry, NewEntryData, SortMode};
 
     use super::Database;
 
@@ -47,23 +47,25 @@ mod tests {
     }
 
     fn text_entry(hash: &str, title: &str) -> NewEntry {
-        NewEntry {
-            content_hash: hash.to_string(),
-            kind: EntryKind::Text,
-            mime_type: "text/plain".to_string(),
-            title: title.to_string(),
-            preview_text: Some(title.to_string()),
-            text_content: Some(title.to_string()),
-            file_path: None,
+        let mut entry = NewEntry::new(hash.to_string(), "text/plain".to_string(), title.to_string());
+        entry.preview_text = Some(title.to_string());
+        entry.text_content = Some(title.to_string());
+        entry.size_bytes = title.len() as i64;
+        entry
+    }
+
+    fn image_entry(hash: &str, title: &str) -> NewEntry {
+        let mut entry =
+            NewEntry::new(hash.to_string(), "image/png".to_string(), title.to_string());
+        entry.preview_text = Some(title.to_string());
+        entry.text_content = Some(title.to_string());
+        entry.size_bytes = title.len() as i64;
+        entry.data = NewEntryData::Image {
+            file_path: Some("/tmp/test.png".to_string()),
             thumb_path: None,
-            source_app: None,
-            link_url: None,
-            link_domain: None,
-            link_icon: None,
-            color_value: None,
-            color_format: None,
-            size_bytes: title.len() as i64,
-        }
+            ocr_text: None,
+        };
+        entry
     }
 
     #[test]
@@ -83,9 +85,14 @@ mod tests {
         let entry = db.get_entry(entry_id).unwrap().unwrap();
         assert_eq!(entry.title, "secret text");
 
-        db.save_ocr_result(entry_id, "eng", "ocr body").unwrap();
-        let entry = db.get_entry(entry_id).unwrap().unwrap();
-        assert_eq!(entry.ocr_text.as_deref(), Some("ocr body"));
+        let image_id = db.upsert_entry(&image_entry("hash-2", "ocr image")).unwrap();
+        db.save_ocr_result(image_id, "eng", "ocr body").unwrap();
+        let entry = db.get_entry(image_id).unwrap().unwrap();
+        if let crate::models::EntryData::Image { ocr_text, .. } = entry.data {
+            assert_eq!(ocr_text.as_deref(), Some("ocr body"));
+        } else {
+            panic!("expected Image entry data");
+        }
 
         let secret_id = db
             .save_secret(Some(entry_id), "Alias", "secret value")
