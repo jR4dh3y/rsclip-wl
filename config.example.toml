@@ -25,6 +25,38 @@ preview_default = true
 image_preview_max_width = 520
 image_preview_max_height = 420
 
+# All ui.colors keys are optional. Missing keys use the built-in defaults.
+# Restart the resident UI with `rsclip quit-ui` after changing colors.
+[ui.colors]
+shell_bg = "rgba(30, 30, 32, 0.70)"
+shell_border = "rgba(220, 217, 231, 0.14)"
+surface = "#2a2a2c"
+surface_subtle = "rgba(42, 42, 44, 0.54)"
+surface_overlay = "#1e1e20"
+preview_bg = "rgba(30, 30, 32, 0.40)"
+preview_text_bg = "rgba(12, 12, 14, 0.34)"
+scrim_bg = "rgba(12, 12, 14, 0.42)"
+
+text = "#dcd9e7"
+text_strong = "#f0eafd"
+text_muted = "#9c96ad"
+text_selected_muted = "#c8bed6"
+
+border = "#4a4653"
+border_subtle = "rgba(220, 217, 231, 0.08)"
+border_preview = "rgba(220, 217, 231, 0.10)"
+border_dialog = "#5c516b"
+
+hover_bg = "#3b304a"
+selected_bg = "#453657"
+
+accent = "#c3fb5b"
+accent_hover = "#d4ff76"
+accent_text = "#11130f"
+
+destructive = "#6f2d38"
+destructive_border = "#9a4350"
+destructive_text = "#fff1f3"
+
 [links]
 favicon_cache = false
-

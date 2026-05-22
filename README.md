@@ -69,6 +69,21 @@ daemon stores history in SQLite and notifies the UI over the existing Unix datag
 
 Install the service and desktop file by adapting the files under `packaging/`.
 
+## Theme colors
+
+The resident UI reads optional theme colors from `~/.config/rsclip/config.toml`.
+All keys under `[ui.colors]` are optional; missing keys keep the built-in
+`nonchalant-dark` defaults. Supported color formats are `#rgb`, `#rrggbb`,
+`#rrggbbaa`, `rgb(r, g, b)`, and `rgba(r, g, b, a)`.
+
+```toml
+[ui.colors]
+accent = "#ff00aa"
+accent_text = "#000000"
+```
+
+Restart the resident UI with `rsclip quit-ui` after changing colors.
+
 ## Release and AUR
 
 This repository can publish a binary AUR package from GitHub release assets.

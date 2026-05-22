@@ -6,7 +6,7 @@ use gio::prelude::*;
 use gtk::prelude::*;
 use gtk4 as gtk;
 use rsclip_core::models::{EntryFilter, SortMode};
-use rsclip_core::{Database, RsclipPaths};
+use rsclip_core::{AppConfig, Database, RsclipPaths};
 
 use crate::actions::refresh::refresh_entries;
 use crate::actions::update_mode_controls;
@@ -68,9 +68,10 @@ impl UiRuntime {
 pub(crate) fn build_ui(app: &gtk::Application) -> Result<UiRuntime> {
     let paths = RsclipPaths::discover()?;
     paths.ensure()?;
+    let config = AppConfig::load(&paths)?;
     Database::open(&paths.db_path)?;
 
-    crate::style::load_css();
+    crate::style::load_css(&config)?;
 
     let window = gtk::ApplicationWindow::builder()
         .application(app)
