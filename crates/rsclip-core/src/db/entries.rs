@@ -1,10 +1,10 @@
 use anyhow::Result;
 use chrono::Utc;
-use rusqlite::{OptionalExtension, params};
+use rusqlite::{params, OptionalExtension};
 
 use crate::models::{ClipboardEntry, EntryFilter, NewEntry, NewEntryData, SortMode};
 
-use super::{Database, rows::entry_from_row};
+use super::{rows::entry_from_row, Database};
 
 impl Database {
     pub fn upsert_entry(&self, entry: &NewEntry) -> Result<i64> {
@@ -36,11 +36,7 @@ impl Database {
                 None,
                 None,
             ),
-            NewEntryData::Link {
-                url,
-                domain,
-                icon,
-            } => (
+            NewEntryData::Link { url, domain, icon } => (
                 None,
                 None,
                 None,
@@ -60,16 +56,9 @@ impl Database {
                 Some(value.clone()),
                 Some(format.clone()),
             ),
-            NewEntryData::File { source_app } => (
-                None,
-                None,
-                source_app.clone(),
-                None,
-                None,
-                None,
-                None,
-                None,
-            ),
+            NewEntryData::File { source_app } => {
+                (None, None, source_app.clone(), None, None, None, None, None)
+            }
             NewEntryData::Unknown => (None, None, None, None, None, None, None, None),
         };
 

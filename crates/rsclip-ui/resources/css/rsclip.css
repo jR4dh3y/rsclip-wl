@@ -3,10 +3,10 @@ window {
 }
 
 .app-shell {
-  background: rgba(30, 30, 32, 0.70);
-  border: 1px solid rgba(220, 217, 231, 0.14);
+  background: @shell_bg;
+  border: 1px solid @shell_border;
   border-radius: 0;
-  color: #dcd9e7;
+  color: @text;
   font-size: 12px;
 }
 
@@ -15,7 +15,7 @@ window {
 }
 
 .footer {
-  border-top: 1px solid rgba(220, 217, 231, 0.08);
+  border-top: 1px solid @border_subtle;
   line-height: 1.1;
   min-height: 22px;
   padding: 1px 8px;
@@ -26,24 +26,24 @@ window {
 }
 
 .search-box {
-  background: #2a2a2c;
-  border: 1px solid #4a4653;
+  background: @surface;
+  border: 1px solid @border;
   border-radius: 0;
-  color: #dcd9e7;
+  color: @text;
   min-height: 26px;
   padding: 0 6px;
 }
 
 .filter-select {
-  background: #2a2a2c;
-  border: 1px solid #4a4653;
-  color: #dcd9e7;
+  background: @surface;
+  border: 1px solid @border;
+  color: @text;
   min-height: 26px;
 }
 
 .filter-select button,
 .filter-select label {
-  color: #dcd9e7;
+  color: @text;
 }
 
 popover,
@@ -57,17 +57,17 @@ popover contents {
 }
 
 popover listview {
-  background: #2a2a2c;
-  border: 1px solid #4a4653;
+  background: @surface;
+  border: 1px solid @border;
   border-radius: 0;
-  color: #dcd9e7;
+  color: @text;
   margin: 0;
   padding: 0;
 }
 
 popover listview row {
-  background: #2a2a2c;
-  color: #dcd9e7;
+  background: @surface;
+  color: @text;
   margin: 0;
 }
 
@@ -82,25 +82,25 @@ popover listview row label {
 }
 
 popover listview row:hover {
-  background: #3b304a;
-  background-color: #3b304a;
+  background: @hover_bg;
+  background-color: @hover_bg;
 }
 
 popover listview row:selected,
 popover listview row:selected:hover {
-  background: #453657;
-  background-color: #453657;
-  color: #f0eafd;
+  background: @selected_bg;
+  background-color: @selected_bg;
+  color: @text_strong;
 }
 
 popover listview row:selected label {
-  color: #f0eafd;
+  color: @text_strong;
 }
 
 .topbar-count {
-  background: #2a2a2c;
-  border: 1px solid #4a4653;
-  color: #dcd9e7;
+  background: @surface;
+  border: 1px solid @border;
+  color: @text;
   font-weight: 600;
   min-height: 24px;
   min-width: 68px;
@@ -115,30 +115,30 @@ popover listview row:selected label {
 
 button.mode-button.active-mode,
 button.mode-button.active-mode:hover {
-  background: #c3fb5b;
-  background-color: #c3fb5b;
+  background: @accent;
+  background-color: @accent;
   background-image: none;
-  border-color: #c3fb5b;
+  border-color: @accent;
   box-shadow: none;
-  color: #11130f;
+  color: @accent_text;
   font-weight: 600;
   text-shadow: none;
 }
 
 button.mode-button.active-mode label {
-  color: #11130f;
+  color: @accent_text;
 }
 
 .sidebar {
-  background: rgba(42, 42, 44, 0.54);
-  border-top: 1px solid rgba(220, 217, 231, 0.08);
-  border-bottom: 1px solid rgba(220, 217, 231, 0.08);
+  background: @surface_subtle;
+  border-top: 1px solid @border_subtle;
+  border-bottom: 1px solid @border_subtle;
 }
 
 .preview-pane {
-  background: rgba(30, 30, 32, 0.40);
-  border-top: 1px solid rgba(220, 217, 231, 0.08);
-  border-bottom: 1px solid rgba(220, 217, 231, 0.08);
+  background: @preview_bg;
+  border-top: 1px solid @border_subtle;
+  border-bottom: 1px solid @border_subtle;
   padding: 8px;
 }
 
@@ -153,7 +153,7 @@ button.mode-button.active-mode label {
 }
 
 .entry-kind {
-  color: #c3fb5b;
+  color: @accent;
   min-width: 28px;
   padding-right: 2px;
 }
@@ -161,8 +161,8 @@ button.mode-button.active-mode label {
 .entry-row:hover,
 .entry-list row:hover,
 listbox row.entry-row:hover {
-  background: #3b304a;
-  background-color: #3b304a;
+  background: @hover_bg;
+  background-color: @hover_bg;
 }
 
 .entry-row:selected,
@@ -171,16 +171,16 @@ listbox row.entry-row:hover {
 .entry-list row:selected:hover,
 listbox row.entry-row:selected,
 listbox row.entry-row:selected:hover {
-  background: #453657;
-  background-color: #453657;
-  color: #f0eafd;
+  background: @selected_bg;
+  background-color: @selected_bg;
+  color: @text_strong;
 }
 
 .entry-row.selected-entry .entry-row-content,
 .entry-list row:selected .entry-row-content,
 listbox row.entry-row:selected .entry-row-content {
-  background: #453657;
-  background-color: #453657;
+  background: @selected_bg;
+  background-color: @selected_bg;
 }
 
 .entry-row.selected-entry label,
@@ -189,30 +189,30 @@ listbox row.entry-row:selected .entry-row-content {
 .entry-list row:selected .entry-title,
 listbox row.entry-row:selected label,
 listbox row.entry-row:selected .entry-title {
-  color: #f0eafd;
+  color: @text_strong;
 }
 
 .entry-row.selected-entry .entry-subtitle,
 .entry-list row:selected .entry-subtitle,
 listbox row.entry-row:selected .entry-subtitle {
-  color: #c8bed6;
+  color: @text_selected_muted;
 }
 
 .entry-row.selected-entry image,
 .entry-list row:selected image,
 listbox row.entry-row:selected image {
-  color: #c3fb5b;
+  color: @accent;
 }
 
 .entry-title {
-  color: #dcd9e7;
+  color: @text;
   font-weight: 600;
 }
 
 .details-value,
 .entry-subtitle,
 .muted {
-  color: #9c96ad;
+  color: @text_muted;
 }
 
 .details-grid {
@@ -220,7 +220,7 @@ listbox row.entry-row:selected image {
 }
 
 .details-panel {
-  border-top: 1px solid rgba(220, 217, 231, 0.10);
+  border-top: 1px solid @border_preview;
   padding-top: 7px;
 }
 
@@ -233,13 +233,13 @@ listbox row.entry-row:selected image {
 }
 
 .details-value {
-  color: #dcd9e7;
+  color: @text;
 }
 
 .ocr-button {
-  background: #c3fb5b;
-  border: 1px solid #c3fb5b;
-  color: #11130f;
+  background: @accent;
+  border: 1px solid @accent;
+  color: @accent_text;
   font-weight: 600;
   min-height: 18px;
   min-width: 32px;
@@ -247,43 +247,43 @@ listbox row.entry-row:selected image {
 }
 
 .kind-badge {
-  background: #c3fb5b;
+  background: @accent;
   border-radius: 0;
-  color: #11130f;
+  color: @accent_text;
   min-height: 18px;
   min-width: 20px;
   padding: 1px 4px;
 }
 
 .preview-text {
-  background: rgba(12, 12, 14, 0.34);
-  border: 1px solid rgba(220, 217, 231, 0.10);
+  background: @preview_text_bg;
+  border: 1px solid @border_preview;
   border-radius: 0;
-  color: #dcd9e7;
+  color: @text;
   padding: 8px;
 }
 
 .inline-dialog-scrim {
-  background: rgba(12, 12, 14, 0.42);
+  background: @scrim_bg;
 }
 
 .inline-dialog {
-  background: #1e1e20;
-  border: 1px solid #5c516b;
-  color: #dcd9e7;
+  background: @surface_overlay;
+  border: 1px solid @border_dialog;
+  color: @text;
   padding: 12px;
 }
 
 .inline-dialog-title {
-  color: #f0eafd;
+  color: @text_strong;
   font-weight: 700;
 }
 
 .inline-dialog-entry {
-  background: #2a2a2c;
-  border: 1px solid #4a4653;
+  background: @surface;
+  border: 1px solid @border;
   border-radius: 0;
-  color: #dcd9e7;
+  color: @text;
   min-height: 26px;
   padding: 0 6px;
 }
@@ -304,14 +304,14 @@ entry.inline-dialog-entry text {
 textview,
 textview text {
   background: transparent;
-  color: #dcd9e7;
+  color: @text;
 }
 
 button {
-  background: #2a2a2c;
-  border: 1px solid #4a4653;
+  background: @surface;
+  border: 1px solid @border;
   border-radius: 0;
-  color: #dcd9e7;
+  color: @text;
   min-height: 20px;
   padding: 0 6px;
 }
@@ -321,38 +321,38 @@ button label {
 }
 
 button:hover {
-  background: #3b304a;
+  background: @hover_bg;
 }
 
 .ocr-button:hover {
-  background: #d4ff76;
+  background: @accent_hover;
 }
 
 button.primary-button,
 button.primary-button:hover {
-  background: #c3fb5b;
-  background-color: #c3fb5b;
+  background: @accent;
+  background-color: @accent;
   background-image: none;
-  border-color: #c3fb5b;
+  border-color: @accent;
   box-shadow: none;
-  color: #11130f;
+  color: @accent_text;
   font-weight: 700;
 }
 
 button.primary-button label {
-  color: #11130f;
+  color: @accent_text;
 }
 
 button.destructive-button,
 button.destructive-button:hover {
-  background: #6f2d38;
-  background-color: #6f2d38;
+  background: @destructive;
+  background-color: @destructive;
   background-image: none;
-  border-color: #9a4350;
+  border-color: @destructive_border;
   box-shadow: none;
-  color: #fff1f3;
+  color: @destructive_text;
 }
 
 button.destructive-button label {
-  color: #fff1f3;
+  color: @destructive_text;
 }

@@ -1,6 +1,6 @@
 use std::process::Command;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 
 pub fn run_tesseract(image_path: &str, language: &str) -> Result<String> {
     let output = Command::new("tesseract")

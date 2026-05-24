@@ -47,10 +47,9 @@ pub(super) fn entry_from_row(row: &Row<'_>) -> rusqlite::Result<ClipboardEntry> 
             let format: Option<String> = row.get("color_format")?;
 
             match (value, format) {
-                (Some(value), Some(format)) => (
-                    EntryKind::Color,
-                    EntryData::Color { value, format },
-                ),
+                (Some(value), Some(format)) => {
+                    (EntryKind::Color, EntryData::Color { value, format })
+                }
                 _ => (EntryKind::Unknown, EntryData::Unknown),
             }
         }

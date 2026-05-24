@@ -58,8 +58,7 @@ pub fn classify_text(
     }
 
     if let Some(link) = detect_single_url(trimmed) {
-        let mut entry =
-            NewEntry::new(content_hash, mime_type.to_string(), link.domain.clone());
+        let mut entry = NewEntry::new(content_hash, mime_type.to_string(), link.domain.clone());
         entry.preview_text = Some(link.url.clone());
         entry.text_content = Some(text);
         entry.size_bytes = size_bytes;
@@ -71,8 +70,11 @@ pub fn classify_text(
         return entry;
     }
 
-    let mut entry =
-        NewEntry::new(content_hash, mime_type.to_string(), first_line_title(trimmed));
+    let mut entry = NewEntry::new(
+        content_hash,
+        mime_type.to_string(),
+        first_line_title(trimmed),
+    );
     entry.preview_text = Some(preview_text(trimmed));
     entry.text_content = Some(text);
     entry.size_bytes = size_bytes;

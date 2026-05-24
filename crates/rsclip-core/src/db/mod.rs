@@ -47,7 +47,11 @@ mod tests {
     }
 
     fn text_entry(hash: &str, title: &str) -> NewEntry {
-        let mut entry = NewEntry::new(hash.to_string(), "text/plain".to_string(), title.to_string());
+        let mut entry = NewEntry::new(
+            hash.to_string(),
+            "text/plain".to_string(),
+            title.to_string(),
+        );
         entry.preview_text = Some(title.to_string());
         entry.text_content = Some(title.to_string());
         entry.size_bytes = title.len() as i64;
@@ -55,8 +59,7 @@ mod tests {
     }
 
     fn image_entry(hash: &str, title: &str) -> NewEntry {
-        let mut entry =
-            NewEntry::new(hash.to_string(), "image/png".to_string(), title.to_string());
+        let mut entry = NewEntry::new(hash.to_string(), "image/png".to_string(), title.to_string());
         entry.preview_text = Some(title.to_string());
         entry.text_content = Some(title.to_string());
         entry.size_bytes = title.len() as i64;
@@ -85,7 +88,9 @@ mod tests {
         let entry = db.get_entry(entry_id).unwrap().unwrap();
         assert_eq!(entry.title, "secret text");
 
-        let image_id = db.upsert_entry(&image_entry("hash-2", "ocr image")).unwrap();
+        let image_id = db
+            .upsert_entry(&image_entry("hash-2", "ocr image"))
+            .unwrap();
         db.save_ocr_result(image_id, "eng", "ocr body").unwrap();
         let entry = db.get_entry(image_id).unwrap().unwrap();
         if let crate::models::EntryData::Image { ocr_text, .. } = entry.data {
