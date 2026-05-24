@@ -230,7 +230,7 @@ mod tests {
 
     #[test]
     fn css_generation_includes_every_color_definition() {
-        let css = build_css(&AppConfig::default()).unwrap();
+        let css = build_css(&AppConfig::default()).expect("default theme CSS should build");
 
         for color in theme_colors() {
             assert!(css.contains(&format!("@define-color {} ", color.name)));
@@ -243,7 +243,7 @@ mod tests {
         config.ui.colors.accent = Some("#ff00aa".to_string());
         config.ui.colors.accent_text = Some("#000000".to_string());
 
-        let css = build_css(&config).unwrap();
+        let css = build_css(&config).expect("CSS with valid overrides should build");
 
         assert!(css.contains("@define-color accent #ff00aa;"));
         assert!(css.contains("@define-color accent_text #000000;"));
@@ -251,7 +251,7 @@ mod tests {
 
     #[test]
     fn missing_colors_fall_back_to_defaults() {
-        let css = build_css(&AppConfig::default()).unwrap();
+        let css = build_css(&AppConfig::default()).expect("default theme CSS should build");
 
         assert!(css.contains("@define-color text #dcd9e7;"));
         assert!(css.contains("@define-color shell_bg rgba(30, 30, 32, 0.70);"));
@@ -276,7 +276,7 @@ mod tests {
             "rgb(195, 251, 91)",
             "rgba(30, 30, 32, 0.70)",
         ] {
-            validate_color("accent", value).unwrap();
+            validate_color("accent", value).expect("supported color format should validate");
         }
     }
 }

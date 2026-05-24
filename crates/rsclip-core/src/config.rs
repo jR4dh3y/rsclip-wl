@@ -151,7 +151,7 @@ mod tests {
     fn test_paths(name: &str) -> RsclipPaths {
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("system time should be after Unix epoch")
             .as_nanos();
         let root = std::env::temp_dir().join(format!(
             "rsclip-config-test-{name}-{}-{unique}",
@@ -172,7 +172,8 @@ mod tests {
 
     #[test]
     fn missing_config_file_returns_defaults() {
-        let config = AppConfig::load(&test_paths("missing")).unwrap();
+        let config = AppConfig::load(&test_paths("missing"))
+            .expect("missing config file should load defaults");
 
         assert_eq!(config.ui.theme, "nonchalant-dark");
         assert!(config.ui.colors.accent.is_none());
@@ -181,10 +182,10 @@ mod tests {
     #[test]
     fn empty_config_file_returns_defaults() {
         let paths = test_paths("empty");
-        fs::create_dir_all(&paths.config_dir).unwrap();
-        fs::write(paths.config_path(), "").unwrap();
+        fs::create_dir_all(&paths.config_dir).expect("test config dir should be created");
+        fs::write(paths.config_path(), "").expect("empty config file should be written");
 
-        let config = AppConfig::load(&paths).unwrap();
+        let config = AppConfig::load(&paths).expect("empty config file should load defaults");
 
         assert_eq!(config.ui.theme, "nonchalant-dark");
         assert!(config.ui.colors.text.is_none());
@@ -193,7 +194,7 @@ mod tests {
     #[test]
     fn partial_colors_only_override_provided_fields() {
         let paths = test_paths("partial");
-        fs::create_dir_all(&paths.config_dir).unwrap();
+        fs::create_dir_all(&paths.config_dir).expect("test config dir should be created");
         fs::write(
             paths.config_path(),
             r##"
@@ -202,9 +203,9 @@ accent = "#ff00aa"
 accent_text = "#000000"
 "##,
         )
-        .unwrap();
+        .expect("partial config file should be written");
 
-        let config = AppConfig::load(&paths).unwrap();
+        let config = AppConfig::load(&paths).expect("partial config file should load");
 
         assert_eq!(config.ui.colors.accent.as_deref(), Some("#ff00aa"));
         assert_eq!(config.ui.colors.accent_text.as_deref(), Some("#000000"));
@@ -214,9 +215,9 @@ accent_text = "#000000"
     #[test]
     fn invalid_toml_returns_error_with_path_context() {
         let paths = test_paths("invalid");
-        fs::create_dir_all(&paths.config_dir).unwrap();
+        fs::create_dir_all(&paths.config_dir).expect("test config dir should be created");
         let path = paths.config_path();
-        fs::write(&path, "[ui").unwrap();
+        fs::write(&path, "[ui").expect("invalid config fixture should be written");
 
         let err = AppConfig::load(&paths).unwrap_err();
 
