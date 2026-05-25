@@ -158,6 +158,26 @@ button.mode-button.active-mode label {
   padding-right: 2px;
 }
 
+.link-favicon-slot {
+  min-height: 20px;
+  min-width: 28px;
+}
+
+.link-favicon {
+  min-height: 20px;
+  min-width: 20px;
+}
+
+.favicon-fallback {
+  border-radius: 3px;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  min-height: 20px;
+  min-width: 20px;
+  padding: 0;
+}
+
 .entry-row:hover,
 .entry-list row:hover,
 listbox row.entry-row:hover {
@@ -343,14 +363,25 @@ button.primary-button label {
   color: @accent_text;
 }
 
-button.destructive-button,
-button.destructive-button:hover {
+button.destructive-button {
   background: @destructive;
   background-color: @destructive;
+  background-image: none;
+  border-color: @destructive;
+  box-shadow: none;
+  color: @destructive_text;
+  font-weight: 700;
+  text-shadow: none;
+}
+
+button.destructive-button:hover {
+  background: @destructive_border;
+  background-color: @destructive_border;
   background-image: none;
   border-color: @destructive_border;
   box-shadow: none;
   color: @destructive_text;
+  text-shadow: none;
 }
 
 button.destructive-button label {

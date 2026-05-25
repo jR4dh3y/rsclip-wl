@@ -1,8 +1,8 @@
 use std::rc::Rc;
 
 use anyhow::Result;
-use rsclip_core::Database;
 use gtk4::prelude::*;
+use rsclip_core::Database;
 
 use crate::actions::set_footer;
 use crate::components::labels::muted_label;
@@ -66,12 +66,27 @@ pub(crate) fn refresh_entries_if_changed(state: &Rc<AppState>) -> Result<()> {
     Ok(())
 }
 
+pub(crate) fn rerender_current_list(state: &Rc<AppState>) {
+    match *state.view.borrow() {
+        AppView::Clipboard => {
+            let selected_id = current_entry(state).map(|entry| entry.id);
+            render_clipboard_list(state, selected_id);
+        }
+        AppView::Secrets => {
+            let selected_id = current_secret(state).map(|secret| secret.id);
+            render_secrets_list(state, selected_id);
+        }
+    }
+}
+
 fn render_clipboard_list(state: &Rc<AppState>, selected_id: Option<i64>) {
     state.secrets.borrow_mut().clear();
     crate::components::clear_list(&state.list);
 
     for entry in state.entries.borrow().iter() {
-        state.list.append(&entry_row(entry));
+        state
+            .list
+            .append(&entry_row(entry, &state.favicon_icon_dir));
     }
 
     let selected_index = selected_id

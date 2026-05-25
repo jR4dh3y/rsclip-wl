@@ -2,9 +2,10 @@ use std::io::{self, Read};
 
 use anyhow::{Context, Result};
 use rsclip_core::cli::option_value;
+use rsclip_core::favicons;
 use rsclip_core::notify::notify_changed;
 use rsclip_core::storage::{content_hash, store_image};
-use rsclip_core::{NewEntryData, RsclipPaths, Database, classify_payload};
+use rsclip_core::{AppConfig, Database, NewEntryData, RsclipPaths, classify_payload};
 
 pub fn run(args: &[String]) -> Result<()> {
     let mime_type = option_value(args, "--mime").unwrap_or("text/plain");
@@ -35,6 +36,12 @@ pub fn run(args: &[String]) -> Result<()> {
     }
 
     let id = db.upsert_entry(&entry)?;
+    let config = AppConfig::load(&paths)?;
+    if config.links.favicon_cache
+        && let NewEntryData::Link { domain, .. } = &entry.data
+    {
+        favicons::enqueue_domain(&paths, domain)?;
+    }
     notify_changed(&paths);
     println!("{id}");
     Ok(())

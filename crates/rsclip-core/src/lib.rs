@@ -3,6 +3,7 @@ pub mod cli;
 pub mod colors;
 pub mod config;
 pub mod db;
+pub mod favicons;
 pub mod format;
 pub mod links;
 pub mod mime;
@@ -14,6 +15,6 @@ pub mod secrets;
 pub mod storage;
 
 pub use classify::classify_payload;
-pub use config::{AppConfig, RsclipPaths, UiColors, UiConfig};
+pub use config::{AppConfig, LinksConfig, RsclipPaths, UiColors, UiConfig};
 pub use db::Database;
 pub use models::{ClipboardEntry, EntryData, EntryKind, NewEntry, NewEntryData};
