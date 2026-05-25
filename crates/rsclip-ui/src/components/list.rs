@@ -130,14 +130,21 @@ fn entry_icon(entry: &ClipboardEntry, favicon_icon_dir: &Path) -> gtk::Widget {
 fn link_icon(favicon_icon_dir: &Path, domain: &str) -> gtk::Widget {
     let path = favicon_icon_dir.join(format!("{}.png", domain_cache_key(domain)));
     if path.exists() {
-        let icon = gtk::Picture::for_filename(path);
-        icon.add_css_class("link-favicon");
-        icon.set_content_fit(gtk::ContentFit::Contain);
-        icon.set_width_request(FAVICON_SIZE);
-        icon.set_height_request(FAVICON_SIZE);
-        icon.set_halign(gtk::Align::Center);
-        icon.set_valign(gtk::Align::Center);
-        return favicon_slot(icon.upcast(), domain);
+        let pixbuf = gdk_pixbuf::Pixbuf::from_file_at_scale(
+            &path,
+            FAVICON_SIZE,
+            FAVICON_SIZE,
+            true,
+        );
+        if let Ok(pixbuf) = pixbuf {
+            let icon = gtk::Image::from_pixbuf(Some(&pixbuf));
+            icon.add_css_class("link-favicon");
+            icon.set_width_request(FAVICON_SIZE);
+            icon.set_height_request(FAVICON_SIZE);
+            icon.set_halign(gtk::Align::Center);
+            icon.set_valign(gtk::Align::Center);
+            return favicon_slot(icon.upcast(), domain);
+        }
     }
 
     let fallback = gtk::Label::new(Some(&domain_initial(domain)));

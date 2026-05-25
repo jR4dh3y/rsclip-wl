@@ -181,6 +181,24 @@ impl Database {
         Ok(rows)
     }
 
+    pub fn list_link_domains(&self) -> Result<Vec<String>> {
+        let mut stmt = self.conn.prepare(
+            r#"
+            SELECT DISTINCT link_domain
+            FROM entries
+            WHERE deleted = 0
+              AND kind = 'link'
+              AND link_domain IS NOT NULL
+              AND link_domain != ''
+            ORDER BY link_domain ASC
+            "#,
+        )?;
+        let domains = stmt
+            .query_map([], |row| row.get::<_, String>(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(domains)
+    }
+
     pub fn get_entry(&self, id: i64) -> Result<Option<ClipboardEntry>> {
         self.conn
             .query_row(

@@ -1416,6 +1416,7 @@ dependencies = [
  "anyhow",
  "blake3",
  "chrono",
+ "gdk-pixbuf",
  "gio",
  "glib",
  "gtk4",

@@ -17,6 +17,7 @@ blake3 = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 directories = "6"
 gio = "0.21"
+gdk-pixbuf = "0.21"
 glib = "0.21"
 gtk4 = { version = "0.10", features = ["v4_10"] }
 gtk4-layer-shell = { version = "0.7", features = ["v1_3"] }
