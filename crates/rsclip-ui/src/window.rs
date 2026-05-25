@@ -109,7 +109,8 @@ pub(crate) fn build_ui(app: &gtk::Application) -> Result<UiRuntime> {
     shell.append(&footer_bar.container);
 
     let state = Rc::new(AppState {
-        db_path: paths.db_path,
+        db_path: paths.db_path.clone(),
+        favicon_icon_dir: paths.favicon_icon_dir.clone(),
         entries: std::cell::RefCell::new(Vec::new()),
         secrets: std::cell::RefCell::new(Vec::new()),
         query: std::cell::RefCell::new(String::new()),

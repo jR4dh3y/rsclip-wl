@@ -30,3 +30,6 @@ toml = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 url = "2"
+ureq = { version = "3.3.0", default-features = false, features = ["rustls", "gzip"] }
+image = { version = "0.25.10", default-features = false, features = ["ico", "png", "jpeg", "webp"] }
+scraper = "0.27.0"

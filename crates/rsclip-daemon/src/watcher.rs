@@ -3,10 +3,19 @@ use std::thread;
 use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
+use rsclip_core::notify::notify_favicons_changed;
+use rsclip_core::{AppConfig, RsclipPaths};
 use tracing::{error, info, warn};
 
 pub fn run_watchers() -> Result<()> {
     require_command("wl-paste")?;
+    let paths = RsclipPaths::discover()?;
+    paths.ensure()?;
+    let config = AppConfig::load(&paths)?;
+    if config.links.favicon_cache {
+        start_favicon_worker(paths.clone());
+    }
+
     info!("starting rsclip clipboard watchers");
     let mut watchers = vec![
         Watcher::new("text", "text", "text/plain"),
@@ -19,6 +28,73 @@ pub fn run_watchers() -> Result<()> {
         }
         thread::sleep(Duration::from_secs(1));
     }
+}
+
+fn start_favicon_worker(paths: RsclipPaths) {
+    thread::spawn(move || {
+        info!("starting favicon cache worker");
+        loop {
+            if let Err(err) = process_one_favicon_job(&paths) {
+                warn!("favicon worker failed: {err:#}");
+            }
+            thread::sleep(Duration::from_secs(2));
+        }
+    });
+}
+
+fn process_one_favicon_job(paths: &RsclipPaths) -> Result<()> {
+    let mut queue_entries = match std::fs::read_dir(&paths.favicon_queue_dir) {
+        Ok(entries) => entries
+            .filter_map(|entry| entry.ok())
+            .map(|entry| entry.path())
+            .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("json"))
+            .collect::<Vec<_>>(),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(err) => {
+            return Err(err).with_context(|| {
+                format!(
+                    "reading favicon queue {}",
+                    paths.favicon_queue_dir.display()
+                )
+            });
+        }
+    };
+    queue_entries.sort();
+
+    let Some(queue_path) = queue_entries.into_iter().next() else {
+        return Ok(());
+    };
+
+    let domain = match crate::favicons::read_queue_domain(&queue_path) {
+        Ok(domain) => domain,
+        Err(err) => {
+            warn!("{err:#}");
+            std::fs::remove_file(&queue_path)
+                .with_context(|| format!("removing {}", queue_path.display()))?;
+            return Ok(());
+        }
+    };
+
+    if !rsclip_core::favicons::should_enqueue(paths, &domain) {
+        std::fs::remove_file(&queue_path)
+            .with_context(|| format!("removing {}", queue_path.display()))?;
+        return Ok(());
+    }
+
+    match crate::favicons::fetch_and_cache_domain(paths, &domain) {
+        Ok(()) => {
+            std::fs::remove_file(&queue_path)
+                .with_context(|| format!("removing {}", queue_path.display()))?;
+            notify_favicons_changed(paths);
+        }
+        Err(err) => {
+            warn!("favicon fetch failed for {domain}: {err:#}");
+            std::fs::remove_file(&queue_path)
+                .with_context(|| format!("removing {}", queue_path.display()))?;
+        }
+    }
+
+    Ok(())
 }
 
 struct Watcher {

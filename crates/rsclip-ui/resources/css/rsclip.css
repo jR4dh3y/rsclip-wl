@@ -158,6 +158,26 @@ button.mode-button.active-mode label {
   padding-right: 2px;
 }
 
+.link-favicon-slot {
+  min-height: 20px;
+  min-width: 28px;
+}
+
+.link-favicon {
+  min-height: 20px;
+  min-width: 20px;
+}
+
+.favicon-fallback {
+  border-radius: 3px;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  min-height: 20px;
+  min-width: 20px;
+  padding: 0;
+}
+
 .entry-row:hover,
 .entry-list row:hover,
 listbox row.entry-row:hover {

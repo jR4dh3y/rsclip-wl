@@ -64,6 +64,11 @@ rsclip quit-ui      # stop the resident UI process
 rsclip list         # print history without starting GTK
 ```
 
+On boot, the packaged systemd service starts only the headless `rsclipd watch` daemon.
+That keeps clipboard capture running, but it does not preload the GTK UI. The first
+hotkey or `rsclip show` after login may take a little longer while the resident UI
+process and window runtime are created; subsequent opens reuse that warm process.
+
 Keep `rsclipd watch` as the headless service. The UI and daemon are separate processes; the
 daemon stores history in SQLite and notifies the UI over the existing Unix datagram socket.
 
@@ -83,6 +88,27 @@ accent_text = "#000000"
 ```
 
 Restart the resident UI with `rsclip quit-ui` after changing colors.
+
+## Link favicons
+
+rsclip can optionally fetch real favicons for copied links. Network activity is disabled
+by default.
+
+```toml
+[links]
+favicon_cache = true
+```
+
+Favicon fetching is handled by the resident `rsclipd watch` daemon in the background.
+The UI never performs network requests. Icons are cached by domain, not by full URL,
+and are fetched once with no automatic refresh. Failed domains are not retried
+automatically. Missing icons use generated domain initials.
+
+Clear cached icons and failed-domain records with:
+
+```bash
+rsclipd favicons clear
+```
 
 ## Release and AUR
 

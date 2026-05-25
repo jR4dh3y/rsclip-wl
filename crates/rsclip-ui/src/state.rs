@@ -14,6 +14,7 @@ pub(crate) enum AppView {
 
 pub(crate) struct AppState {
     pub(crate) db_path: PathBuf,
+    pub(crate) favicon_icon_dir: PathBuf,
     pub(crate) entries: RefCell<Vec<ClipboardEntry>>,
     pub(crate) secrets: RefCell<Vec<SecretEntry>>,
     pub(crate) query: RefCell<String>,

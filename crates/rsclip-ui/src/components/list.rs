@@ -1,7 +1,13 @@
-use rsclip_core::format::{masked_secret, relative_time};
-use rsclip_core::models::{ClipboardEntry, EntryData, EntryKind, SecretEntry};
+use std::path::Path;
+
 use gtk::prelude::*;
 use gtk4 as gtk;
+use rsclip_core::favicons::domain_cache_key;
+use rsclip_core::format::{masked_secret, relative_time};
+use rsclip_core::models::{ClipboardEntry, EntryData, EntryKind, SecretEntry};
+
+const FAVICON_SLOT_SIZE: i32 = 28;
+const FAVICON_SIZE: i32 = 20;
 
 pub(crate) struct ListPanel {
     pub(crate) scroller: gtk::ScrolledWindow,
@@ -32,14 +38,14 @@ pub(crate) fn build_panel() -> ListPanel {
     }
 }
 
-pub(crate) fn entry_row(entry: &ClipboardEntry) -> gtk::ListBoxRow {
+pub(crate) fn entry_row(entry: &ClipboardEntry, favicon_icon_dir: &Path) -> gtk::ListBoxRow {
     let row = gtk::ListBoxRow::new();
     row.add_css_class("entry-row");
 
     let outer = gtk::Box::new(gtk::Orientation::Horizontal, 8);
     outer.add_css_class("entry-row-content");
     outer.set_hexpand(true);
-    let icon = row_icon(entry_icon_name(entry), entry_kind_label(entry));
+    let icon = entry_icon(entry, favicon_icon_dir);
     outer.append(&icon);
 
     let text = gtk::Box::new(gtk::Orientation::Vertical, 3);
@@ -114,14 +120,89 @@ fn badge_icon(icon_name: &str, tooltip: &str) -> gtk::Image {
     icon
 }
 
+fn entry_icon(entry: &ClipboardEntry, favicon_icon_dir: &Path) -> gtk::Widget {
+    match &entry.data {
+        EntryData::Link { domain, .. } => link_icon(favicon_icon_dir, domain),
+        _ => row_icon(entry_icon_name(entry), entry_kind_label(entry)).upcast(),
+    }
+}
+
+fn link_icon(favicon_icon_dir: &Path, domain: &str) -> gtk::Widget {
+    let path = favicon_icon_dir.join(format!("{}.png", domain_cache_key(domain)));
+    if path.exists() {
+        let icon = gtk::Picture::for_filename(path);
+        icon.add_css_class("link-favicon");
+        icon.set_content_fit(gtk::ContentFit::Contain);
+        icon.set_width_request(FAVICON_SIZE);
+        icon.set_height_request(FAVICON_SIZE);
+        icon.set_halign(gtk::Align::Center);
+        icon.set_valign(gtk::Align::Center);
+        return favicon_slot(icon.upcast(), domain);
+    }
+
+    let fallback = gtk::Label::new(Some(&domain_initial(domain)));
+    fallback.add_css_class("link-favicon");
+    fallback.add_css_class("favicon-fallback");
+    let color_class = install_domain_color_css(domain);
+    fallback.add_css_class(&color_class);
+    fallback.set_width_request(FAVICON_SIZE);
+    fallback.set_height_request(FAVICON_SIZE);
+    fallback.set_halign(gtk::Align::Center);
+    fallback.set_valign(gtk::Align::Center);
+    fallback.set_xalign(0.5);
+    fallback.set_yalign(0.5);
+    favicon_slot(fallback.upcast(), domain)
+}
+
+fn favicon_slot(child: gtk::Widget, domain: &str) -> gtk::Widget {
+    let slot = gtk::CenterBox::new();
+    slot.add_css_class("link-favicon-slot");
+    slot.set_tooltip_text(Some(domain_tooltip(domain)));
+    slot.set_width_request(FAVICON_SLOT_SIZE);
+    slot.set_height_request(FAVICON_SIZE);
+    slot.set_halign(gtk::Align::Center);
+    slot.set_valign(gtk::Align::Center);
+    slot.set_center_widget(Some(&child));
+    slot.upcast()
+}
+
+fn domain_tooltip(domain: &str) -> &str {
+    if domain.is_empty() { "Link" } else { domain }
+}
+
+fn domain_initial(domain: &str) -> String {
+    domain
+        .split('.')
+        .find_map(|label| label.chars().find(|ch| ch.is_ascii_alphanumeric()))
+        .map(|ch| ch.to_ascii_uppercase().to_string())
+        .unwrap_or_else(|| "?".to_string())
+}
+
+fn install_domain_color_css(domain: &str) -> String {
+    let key = domain_cache_key(domain);
+    let class = format!("favicon-color-{}", &key[..8]);
+    let hash = blake3::hash(domain.as_bytes());
+    let bytes = hash.as_bytes();
+    let red = 48 + (bytes[0] % 128);
+    let green = 48 + (bytes[1] % 128);
+    let blue = 48 + (bytes[2] % 128);
+    let css =
+        format!(".favicon-fallback.{class} {{ background: #{red:02x}{green:02x}{blue:02x}; }}");
+    let provider = gtk::CssProvider::new();
+    provider.load_from_data(&css);
+    if let Some(display) = gtk::gdk::Display::default() {
+        gtk::style_context_add_provider_for_display(
+            &display,
+            &provider,
+            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        );
+    }
+    class
+}
+
 fn entry_icon_name(entry: &ClipboardEntry) -> &'static str {
     match &entry.data {
-        EntryData::Link { icon, .. } => match icon.as_str() {
-            "github" => "code-context-symbolic",
-            "youtube" => "video-x-generic-symbolic",
-            "rust" => "application-x-executable-symbolic",
-            _ => "emblem-shared-symbolic",
-        },
+        EntryData::Link { .. } => unreachable!(),
         _ => match entry.kind {
             EntryKind::Text => "text-x-generic-symbolic",
             EntryKind::Image => "image-x-generic-symbolic",

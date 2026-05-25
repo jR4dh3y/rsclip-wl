@@ -1,4 +1,5 @@
 mod commands;
+mod favicons;
 mod output;
 mod watcher;
 

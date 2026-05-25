@@ -1,4 +1,5 @@
 mod delete;
+mod favicons;
 mod list;
 mod ocr;
 mod paste;
@@ -16,6 +17,7 @@ pub fn run(args: &[String]) -> Result<()> {
         Some("delete") => delete::run(&args[1..]),
         Some("paste") => paste::run(&args[1..]),
         Some("ocr") => ocr::run(&args[1..]),
+        Some("favicons") => favicons::run(&args[1..]),
         Some("help" | "--help" | "-h") => {
             print_help();
             Ok(())
@@ -36,6 +38,7 @@ Commands:
   delete <id>                        Soft-delete an entry
   paste <id> [--copy-only]            Restore an entry and optionally paste
   ocr <id> [--lang eng]              Run tesseract OCR for an image entry
+  favicons clear                     Clear cached favicons and failed-domain records
 "#
     );
 }

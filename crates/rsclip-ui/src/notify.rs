@@ -7,9 +7,9 @@ use std::rc::Rc;
 use anyhow::{Context, Result};
 use gtk4 as gtk;
 use gtk4::prelude::*;
-use rsclip_core::notify::CHANGE_EVENT;
+use rsclip_core::notify::{CHANGE_EVENT, FAVICON_EVENT};
 
-use crate::actions::refresh::refresh_entries_if_changed;
+use crate::actions::refresh::{refresh_entries_if_changed, rerender_current_list};
 use crate::actions::set_footer;
 use crate::state::AppState;
 
@@ -44,10 +44,12 @@ pub(crate) fn install_change_listener(
         gtk::glib::source::unix_fd_add_local(fd, gtk::glib::IOCondition::IN, move |_, _| {
             let mut buf = [0_u8; 64];
             let mut changed = false;
+            let mut favicons_changed = false;
             loop {
                 match socket.recv(&mut buf) {
                     Ok(size) => {
                         changed |= &buf[..size] == CHANGE_EVENT;
+                        favicons_changed |= &buf[..size] == FAVICON_EVENT;
                     }
                     Err(err) if err.kind() == ErrorKind::WouldBlock => break,
                     Err(err) => {
@@ -64,6 +66,14 @@ pub(crate) fn install_change_listener(
                         Ok(()) => *state.dirty.borrow_mut() = false,
                         Err(err) => set_footer(&state, &format!("Refresh failed: {err:#}")),
                     }
+                }
+            }
+            if favicons_changed {
+                if window.is_visible() {
+                    rerender_current_list(&state);
+                    *state.dirty.borrow_mut() = false;
+                } else {
+                    *state.dirty.borrow_mut() = true;
                 }
             }
             gtk::glib::ControlFlow::Continue

@@ -15,6 +15,10 @@ pub struct RsclipPaths {
     pub image_dir: PathBuf,
     pub thumb_dir: PathBuf,
     pub ocr_dir: PathBuf,
+    pub favicon_dir: PathBuf,
+    pub favicon_icon_dir: PathBuf,
+    pub favicon_queue_dir: PathBuf,
+    pub favicon_miss_dir: PathBuf,
     pub log_path: PathBuf,
     pub socket_path: PathBuf,
 }
@@ -23,6 +27,22 @@ pub struct RsclipPaths {
 pub struct AppConfig {
     #[serde(default)]
     pub ui: UiConfig,
+    #[serde(default)]
+    pub links: LinksConfig,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct LinksConfig {
+    #[serde(default)]
+    pub favicon_cache: bool,
+}
+
+impl Default for LinksConfig {
+    fn default() -> Self {
+        Self {
+            favicon_cache: false,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -97,6 +117,10 @@ impl RsclipPaths {
         let image_dir = data_dir.join("images");
         let thumb_dir = data_dir.join("thumbs");
         let ocr_dir = data_dir.join("ocr");
+        let favicon_dir = data_dir.join("favicons");
+        let favicon_icon_dir = favicon_dir.join("icons");
+        let favicon_queue_dir = favicon_dir.join("queue");
+        let favicon_miss_dir = favicon_dir.join("misses");
 
         Ok(Self {
             db_path: state_dir.join("rsclip.db"),
@@ -108,6 +132,10 @@ impl RsclipPaths {
             image_dir,
             thumb_dir,
             ocr_dir,
+            favicon_dir,
+            favicon_icon_dir,
+            favicon_queue_dir,
+            favicon_miss_dir,
         })
     }
 
@@ -119,6 +147,10 @@ impl RsclipPaths {
             &self.image_dir,
             &self.thumb_dir,
             &self.ocr_dir,
+            &self.favicon_dir,
+            &self.favicon_icon_dir,
+            &self.favicon_queue_dir,
+            &self.favicon_miss_dir,
         ] {
             fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
         }
@@ -165,6 +197,10 @@ mod tests {
             image_dir: root.join("data").join("images"),
             thumb_dir: root.join("data").join("thumbs"),
             ocr_dir: root.join("data").join("ocr"),
+            favicon_dir: root.join("data").join("favicons"),
+            favicon_icon_dir: root.join("data").join("favicons").join("icons"),
+            favicon_queue_dir: root.join("data").join("favicons").join("queue"),
+            favicon_miss_dir: root.join("data").join("favicons").join("misses"),
             log_path: root.join("state").join("rsclip.log"),
             socket_path: root.join("rsclip.sock"),
         }
@@ -177,6 +213,7 @@ mod tests {
 
         assert_eq!(config.ui.theme, "nonchalant-dark");
         assert!(config.ui.colors.accent.is_none());
+        assert!(!config.links.favicon_cache);
     }
 
     #[test]
@@ -189,6 +226,7 @@ mod tests {
 
         assert_eq!(config.ui.theme, "nonchalant-dark");
         assert!(config.ui.colors.text.is_none());
+        assert!(!config.links.favicon_cache);
     }
 
     #[test]
@@ -227,5 +265,23 @@ accent_text = "#000000"
     #[test]
     fn theme_defaults_to_nonchalant_dark() {
         assert_eq!(AppConfig::default().ui.theme, "nonchalant-dark");
+    }
+
+    #[test]
+    fn links_favicon_cache_parses_true() {
+        let paths = test_paths("links");
+        fs::create_dir_all(&paths.config_dir).expect("test config dir should be created");
+        fs::write(
+            paths.config_path(),
+            r#"
+[links]
+favicon_cache = true
+"#,
+        )
+        .expect("links config file should be written");
+
+        let config = AppConfig::load(&paths).expect("links config file should load");
+
+        assert!(config.links.favicon_cache);
     }
 }
