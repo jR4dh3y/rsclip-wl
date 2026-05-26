@@ -114,7 +114,7 @@ rsclipd favicons clear
 
 This repository can publish a binary AUR package from GitHub release assets.
 
-- Build the release archive locally with `./scripts/build-release-archive.sh 0.1.5`.
+- Build the release archive locally with `./scripts/build-release-archive.sh 0.1.6`.
 - The AUR package definition lives under `packaging/aur/rsclip-bin`.
-- Pushing a matching Git tag such as `v0.1.5` triggers GitHub Actions to publish the
+- Pushing a matching Git tag such as `v0.1.6` triggers GitHub Actions to publish the
   archive and update the `rsclip-bin` AUR package.
