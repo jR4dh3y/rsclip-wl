@@ -169,7 +169,7 @@ pub(crate) fn render_preview(state: &Rc<AppState>, entry: &ClipboardEntry) {
     } = &entry.data
         && !ocr.is_empty()
     {
-        state.preview.append(&section_label("OCR"));
+        render_ocr_header(state, ocr);
         render_text_preview(&state.preview, Some(ocr));
     }
 
@@ -233,6 +233,31 @@ fn render_color_preview(container: &gtk::Box, hex: &str) {
     frame.set_child(Some(&swatch));
     container.append(&frame);
     render_text_preview(container, Some(hex));
+}
+
+fn render_ocr_header(state: &Rc<AppState>, ocr: &str) {
+    let header = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    header.set_hexpand(true);
+
+    let title = section_label("OCR");
+    title.set_hexpand(true);
+    header.append(&title);
+
+    let copy = gtk::Button::with_label("Copy OCR");
+    copy.add_css_class("primary-button");
+    {
+        let state = Rc::clone(state);
+        let ocr = ocr.to_string();
+        copy.connect_clicked(move |_| {
+            if let Err(err) = crate::actions::clipboard::copy_text(&ocr) {
+                crate::actions::set_footer(&state, &format!("Copy OCR failed: {err:#}"));
+            } else {
+                crate::actions::set_footer(&state, "Copied OCR text");
+            }
+        });
+    }
+    header.append(&copy);
+    state.preview.append(&header);
 }
 
 fn render_text_preview(container: &gtk::Box, text: Option<&str>) {

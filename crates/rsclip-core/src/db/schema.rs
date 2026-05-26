@@ -76,6 +76,19 @@ impl Database {
 
             CREATE INDEX IF NOT EXISTS idx_secrets_updated_at ON secrets(updated_at DESC);
             CREATE INDEX IF NOT EXISTS idx_secrets_alias ON secrets(alias);
+
+            UPDATE entries
+               SET kind = 'text',
+                   title = substr(text_content, 1, 96),
+                   preview_text = text_content,
+                   link_url = NULL,
+                   link_domain = NULL,
+                   link_icon = NULL
+             WHERE kind = 'link'
+               AND text_content IS NOT NULL
+               AND trim(text_content) != ''
+               AND lower(trim(text_content)) NOT LIKE 'http://%'
+               AND lower(trim(text_content)) NOT LIKE 'https://%';
             "#,
         )?;
         Ok(())

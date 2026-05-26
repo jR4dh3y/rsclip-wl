@@ -118,4 +118,46 @@ mod tests {
         let _ = std::fs::remove_file(path.with_extension("sqlite-shm"));
         let _ = std::fs::remove_file(path.with_extension("sqlite-wal"));
     }
+
+    #[test]
+    fn migration_repairs_generated_https_links_from_bare_text() {
+        let path = temp_db_path();
+        let db = Database::open(&path).unwrap();
+
+        db.conn
+            .execute(
+                r#"
+                INSERT INTO entries (
+                  content_hash, kind, mime_type, title, preview_text, text_content,
+                  link_url, link_domain, link_icon, copied_at, updated_at, size_bytes
+                )
+                VALUES (?1, 'link', 'text/plain', ?2, ?3, ?4, ?3, ?2, 'globe', 1, 1, ?5)
+                "#,
+                rusqlite::params![
+                    "hash-old-generated-link",
+                    "fbs-admin-token-2026",
+                    "https://fbsa_1f3a8e0389a8c0cbc656fca80307e478.fbs-admin-token-2026",
+                    "fbsa_1f3a8e0389a8c0cbc656fca80307e478.fbs-admin-token-2026",
+                    68_i64,
+                ],
+            )
+            .unwrap();
+
+        db.migrate().unwrap();
+
+        let entries = db
+            .list_entries("", EntryFilter::All, SortMode::Default, 100)
+            .unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(
+            entries[0].title,
+            "fbsa_1f3a8e0389a8c0cbc656fca80307e478.fbs-admin-token-2026"
+        );
+        assert!(matches!(entries[0].data, crate::models::EntryData::Text));
+
+        drop(db);
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(path.with_extension("sqlite-shm"));
+        let _ = std::fs::remove_file(path.with_extension("sqlite-wal"));
+    }
 }

@@ -20,3 +20,7 @@ pub(crate) fn copy_secret(state: &Rc<AppState>, secret: &SecretEntry) -> Result<
     db.touch_secret_used(secret.id)?;
     Ok(())
 }
+
+pub(crate) fn copy_text(text: &str) -> Result<()> {
+    write_clipboard("text/plain", text.as_bytes())
+}

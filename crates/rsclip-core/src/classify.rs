@@ -132,6 +132,29 @@ mod tests {
     }
 
     #[test]
+    fn classifies_bare_domain_as_text() {
+        let entry = classify_payload(
+            "text/plain",
+            "hash".to_string(),
+            b"fastblobstorage.vercel.app",
+        )
+        .unwrap();
+        assert!(matches!(entry.data, NewEntryData::Text));
+        assert_eq!(entry.title, "fastblobstorage.vercel.app");
+    }
+
+    #[test]
+    fn classifies_token_shaped_https_value_as_text() {
+        let entry = classify_payload(
+            "text/plain",
+            "hash".to_string(),
+            b"https://fbsa_1f3a8e0389a8c0cbc656fca80307e478.fbs-admin-token-2026",
+        )
+        .unwrap();
+        assert!(matches!(entry.data, NewEntryData::Text));
+    }
+
+    #[test]
     fn classifies_color() {
         let entry = classify_payload("text/plain", "hash".to_string(), b"#c59edc").unwrap();
         assert!(matches!(entry.data, NewEntryData::Color { .. }));
